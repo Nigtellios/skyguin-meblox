@@ -1,0 +1,16 @@
+{
+  "name": "skyguin-meblox",
+  "version": "1.0.0",
+  "description": "Aplikacja do projektowania mebli",
+  "scripts": {
+    "dev": "bun run server/index.ts",
+    "dev:client": "bun run --cwd client dev",
+    "dev:all": "bun run --bun concurrently \"bun run dev\" \"bun run dev:client\"",
+    "build": "bun run --cwd client build",
+    "start": "bun run server/index.ts",
+    "install:all": "bun install && bun install --cwd client"
+  },
+  "dependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

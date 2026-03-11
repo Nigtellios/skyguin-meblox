@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/* Custom utility classes */
+@layer utilities {
+  .panel-glass {
+    background: rgba(15, 15, 30, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded text-sm font-medium transition-colors;
+  }
+
+  .btn-danger {
+    @apply bg-red-700 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors;
+  }
+
+  .btn-icon {
+    @apply p-1.5 rounded hover:bg-white/10 text-slate-300 hover:text-white transition-colors;
+  }
+
+  .input-field {
+    @apply bg-slate-800 border border-slate-600 text-slate-200 rounded px-2 py-1 text-sm w-full focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500;
+  }
+
+  .label-text {
+    @apply text-slate-400 text-xs font-medium uppercase tracking-wider;
+  }
+
+  .panel-section {
+    @apply p-3 border-b border-slate-700/50;
+  }
+}
