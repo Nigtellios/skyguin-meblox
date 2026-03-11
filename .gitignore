@@ -149,3 +149,6 @@ client/bun.lockb
 # Client build artifacts
 client/dist/
 
+
+# Client npm lockfile is not used; Bun lockfile is authoritative
+client/package-lock.json

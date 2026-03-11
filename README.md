@@ -6,7 +6,7 @@ Aplikacja do projektowania mebli. Prosta jak budowa cepa.
 
 ## Stack technologiczny
 
-- **Runtime:** [Bun.js](https://bun.sh/) v1.x
+- **Runtime aplikacji:** [Bun.js](https://bun.sh/) v1.x — jedna aplikacja, jeden runtime
 - **Frontend:** [Vue 3](https://vuejs.org/) z Composition API + [Vite](https://vitejs.dev/)
 - **3D:** [Three.js](https://threejs.org/) z WebGL
 - **Stylowanie:** [Tailwind CSS v4](https://tailwindcss.com/)
@@ -37,25 +37,25 @@ Aplikacja do projektowania mebli. Prosta jak budowa cepa.
 ### Instalacja zależności
 
 ```bash
-# Zainstaluj zależności serwera
-bun install
+# Tooling repo (Biome, Husky, typowanie serwera)
+npm install
 
-# Zainstaluj zależności klienta (używa npm lub bun)
+# Zależności aplikacji klienckiej pod Buna
 cd client && bun install && cd ..
-# lub: cd client && npm install && cd ..
 ```
 
 ### Tryb deweloperski
 
 ```bash
-# Terminal 1 – serwer API (port 3001)
+# Główna aplikacja Bun (API + serwowanie buildu)
 bun run dev
 
-# Terminal 2 – klient Vite dev server (port 5173)
-bun run dev:client
+# Opcjonalnie: osobny dev server UI do szybkiej iteracji na froncie
+bun run dev:ui
 ```
 
-Otwórz [http://localhost:5173](http://localhost:5173)
+- `bun run dev` uruchamia jedną aplikację pod jednym runtime Bun na porcie `3001`
+- `bun run dev:ui` wystawia tylko dev server Vite na porcie `5173`
 
 ### Produkcja
 
@@ -101,3 +101,22 @@ skyguin-meblox/
 ├── database.sqlite          # Baza danych SQLite (w repozytorium)
 └── package.json             # Root package.json
 ```
+
+## Tooling jakości
+
+- `bun run lint:fix` — Biome z autofixem
+- `bun run lint` — kontrolny lint Biome
+- `bun run typecheck` — TypeScript przez Buna (`tsc` dla serwera + `vue-tsc` dla klienta)
+- `bun run test:run` — pełne testy w `bun test`
+- `bun run verify:start` — build aplikacji i sprawdzenie, czy startuje i działa ponad 5 sekund
+
+### Hooki Husky
+
+**pre-commit**
+- `bun run lint:fix`
+- `bun run lint`
+- `bun run typecheck`
+- `bun run test:run`
+
+**pre-push**
+- `bun run verify:start`

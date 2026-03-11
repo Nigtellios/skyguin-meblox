@@ -69,7 +69,12 @@ export type MaterialTemplate = z.infer<typeof MaterialTemplateSchema>;
 export type ComponentGroup = z.infer<typeof ComponentGroupSchema>;
 
 export type Side = "top" | "bottom" | "left" | "right" | "front" | "back";
-export type LayerType = "veneer" | "edge_banding" | "paint" | "laminate" | "foil";
+export type LayerType =
+  | "veneer"
+  | "edge_banding"
+  | "paint"
+  | "laminate"
+  | "foil";
 
 export const LAYER_TYPE_LABELS: Record<LayerType, string> = {
   veneer: "Fornir",

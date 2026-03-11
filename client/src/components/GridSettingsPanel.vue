@@ -11,7 +11,7 @@
         <button
           class="relative w-10 h-5 rounded-full transition-colors"
           :class="store.state.grid.visible ? 'bg-blue-600' : 'bg-slate-600'"
-          @click="toggle('visible', !store.state.grid.visible)"
+          @click="toggleVisible(!store.state.grid.visible)"
         >
           <div
             class="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
@@ -89,42 +89,40 @@
 
 <script setup lang="ts">
 import { useAppStore } from "../composables/useAppStore";
-import type { GridConfig } from "../types";
+import {
+  displayGridValue,
+  GRID_PRESETS,
+  type GridAxisKey,
+  normalizeGridInput,
+} from "../lib/grid";
 
 const store = useAppStore();
 
-const axes = [
-  { key: "sizeX" as keyof GridConfig, label: "X" },
-  { key: "sizeY" as keyof GridConfig, label: "Y" },
-  { key: "sizeZ" as keyof GridConfig, label: "Z" },
+const axes: Array<{ key: GridAxisKey; label: string }> = [
+  { key: "sizeX", label: "X" },
+  { key: "sizeY", label: "Y" },
+  { key: "sizeZ", label: "Z" },
 ];
 
-const presets = [
-  { label: "10mm", sizeX: 10, sizeY: 10, sizeZ: 10 },
-  { label: "50mm", sizeX: 50, sizeY: 50, sizeZ: 50 },
-  { label: "100mm", sizeX: 100, sizeY: 100, sizeZ: 100 },
-  { label: "200mm", sizeX: 200, sizeY: 200, sizeZ: 200 },
-  { label: "500mm", sizeX: 500, sizeY: 500, sizeZ: 500 },
-  { label: "1cm", sizeX: 10, sizeY: 10, sizeZ: 10 },
-];
+const presets = GRID_PRESETS;
 
-function displayValue(key: keyof GridConfig): number {
-  const v = store.state.grid[key] as number;
-  return store.state.grid.unit === "cm" ? v / 10 : v;
+function displayValue(key: GridAxisKey) {
+  return displayGridValue(store.state.grid[key], store.state.grid.unit);
 }
 
-function toggle(key: keyof GridConfig, val: boolean) {
-  store.setGridConfig({ [key]: val } as any);
+function toggleVisible(value: boolean) {
+  store.setGridConfig({ visible: value });
 }
 
 function setUnit(unit: "mm" | "cm") {
   store.setGridConfig({ unit });
 }
 
-function onRange(key: keyof GridConfig, e: Event) {
-  let val = parseFloat((e.target as HTMLInputElement).value);
-  if (store.state.grid.unit === "cm") val = val * 10; // convert to mm
-  store.setGridConfig({ [key]: val } as any);
+function onRange(key: GridAxisKey, event: Event) {
+  const nextValue = Number.parseFloat((event.target as HTMLInputElement).value);
+  store.setGridConfig({
+    [key]: normalizeGridInput(nextValue, store.state.grid.unit),
+  });
 }
 
 function applyPreset(p: { sizeX: number; sizeY: number; sizeZ: number }) {

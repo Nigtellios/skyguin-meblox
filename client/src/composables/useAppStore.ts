@@ -1,14 +1,14 @@
-import { reactive, readonly, computed } from "vue";
-import { api } from "./useApi";
+import { computed, reactive, readonly } from "vue";
 import type {
-  Project,
-  FurnitureObject,
-  MaterialTemplate,
-  ComponentGroup,
-  GridConfig,
   AppPanel,
+  ComponentGroup,
+  FurnitureObject,
+  GridConfig,
+  MaterialTemplate,
+  Project,
   SceneMode,
 } from "../types";
+import { api } from "./useApi";
 
 // ---- Global App State ----
 const state = reactive({
@@ -44,16 +44,16 @@ const state = reactive({
   error: null as string | null,
 });
 
-const currentProject = computed(() =>
-  state.projects.find((p) => p.id === state.currentProjectId) ?? null
+const currentProject = computed(
+  () => state.projects.find((p) => p.id === state.currentProjectId) ?? null,
 );
 
 const selectedObjects = computed(() =>
-  state.objects.filter((o) => state.selectedObjectIds.includes(o.id))
+  state.objects.filter((o) => state.selectedObjectIds.includes(o.id)),
 );
 
 const firstSelectedObject = computed(() =>
-  selectedObjects.value.length === 1 ? selectedObjects.value[0] : null
+  selectedObjects.value.length === 1 ? selectedObjects.value[0] : null,
 );
 
 // ---- Actions ----
@@ -64,8 +64,11 @@ async function loadProjects() {
     if (state.projects.length > 0 && !state.currentProjectId) {
       await selectProject(state.projects[0].id);
     }
-  } catch (e: any) {
-    state.error = e.message;
+  } catch (error: unknown) {
+    state.error =
+      error instanceof Error
+        ? error.message
+        : "Nie udało się wczytać projektów.";
   } finally {
     state.loading = false;
   }
@@ -139,10 +142,15 @@ async function updateObject(id: string, data: Partial<FurnitureObject>) {
     if (data.height !== undefined) syncData.height = data.height;
     if (data.depth !== undefined) syncData.depth = data.depth;
     if (data.color !== undefined) syncData.color = data.color;
-    if (data.material_template_id !== undefined) syncData.material_template_id = data.material_template_id;
+    if (data.material_template_id !== undefined)
+      syncData.material_template_id = data.material_template_id;
 
     if (Object.keys(syncData).length > 0) {
-      const synced = await api.components.sync(state.currentProjectId, updated.component_id, syncData);
+      const synced = await api.components.sync(
+        state.currentProjectId,
+        updated.component_id,
+        syncData,
+      );
       for (const syncedObj of synced) {
         if (syncedObj.id === id) continue;
         const i = state.objects.findIndex((o) => o.id === syncedObj.id);
@@ -152,7 +160,15 @@ async function updateObject(id: string, data: Partial<FurnitureObject>) {
   }
 }
 
-async function updateObjectPosition(id: string, pos: { position_x?: number; position_y?: number; position_z?: number; rotation_y?: number }) {
+async function updateObjectPosition(
+  id: string,
+  pos: {
+    position_x?: number;
+    position_y?: number;
+    position_z?: number;
+    rotation_y?: number;
+  },
+) {
   if (!state.currentProjectId) return;
   const updated = await api.objects.update(state.currentProjectId, id, pos);
   const idx = state.objects.findIndex((o) => o.id === id);
@@ -178,7 +194,9 @@ async function duplicateObject(id: string) {
 function selectObject(id: string, multiSelect = false) {
   if (multiSelect) {
     if (state.selectedObjectIds.includes(id)) {
-      state.selectedObjectIds = state.selectedObjectIds.filter((sid) => sid !== id);
+      state.selectedObjectIds = state.selectedObjectIds.filter(
+        (sid) => sid !== id,
+      );
     } else {
       state.selectedObjectIds.push(id);
     }
@@ -202,7 +220,10 @@ async function loadComponents() {
 
 async function createComponent(name: string, objectIds: string[]) {
   if (!state.currentProjectId) return;
-  const group = await api.components.create(state.currentProjectId, { name, object_ids: objectIds });
+  const group = await api.components.create(state.currentProjectId, {
+    name,
+    object_ids: objectIds,
+  });
   state.componentGroups.push(group);
   await loadObjects(); // Reload to get updated component_ids
   return group;

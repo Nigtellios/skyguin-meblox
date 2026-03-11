@@ -40,9 +40,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, watchEffect } from "vue";
-import { useScene } from "../composables/useScene";
+import { onMounted, ref, watch, watchEffect } from "vue";
 import { useAppStore } from "../composables/useAppStore";
+import { useScene } from "../composables/useScene";
 import AddObjectDialog from "./AddObjectDialog.vue";
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -72,7 +72,7 @@ onMounted(() => {
 
 function syncScene() {
   if (!scene) return;
-  scene.syncObjects([...store.state.objects] as any, [...store.state.selectedObjectIds]);
+  scene.syncObjects(store.state.objects, store.state.selectedObjectIds);
   scene.buildGrid(store.state.grid);
 }
 
@@ -80,18 +80,18 @@ function syncScene() {
 watch(
   () => [...store.state.objects],
   () => syncScene(),
-  { deep: true }
+  { deep: true },
 );
 
 watch(
   () => [...store.state.selectedObjectIds],
-  () => syncScene()
+  () => syncScene(),
 );
 
 watch(
   () => ({ ...store.state.grid }),
   () => scene?.buildGrid(store.state.grid),
-  { deep: true }
+  { deep: true },
 );
 
 function onMouseDown(e: MouseEvent) {

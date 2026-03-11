@@ -20,7 +20,7 @@
         <input
           :value="obj.name"
           class="input-field"
-          @change="update('name', ($event.target as HTMLInputElement).value)"
+          @change="updateObjectField('name', ($event.target as HTMLInputElement).value)"
         />
       </div>
 
@@ -35,7 +35,7 @@
               type="number"
               min="1"
               class="input-field"
-              @change="updateNum('width', $event)"
+              @change="updateNumberField('width', $event)"
             />
           </div>
           <div>
@@ -45,7 +45,7 @@
               type="number"
               min="1"
               class="input-field"
-              @change="updateNum('height', $event)"
+              @change="updateNumberField('height', $event)"
             />
           </div>
           <div>
@@ -55,7 +55,7 @@
               type="number"
               min="1"
               class="input-field"
-              @change="updateNum('depth', $event)"
+              @change="updateNumberField('depth', $event)"
             />
           </div>
         </div>
@@ -77,7 +77,7 @@
               :value="Math.round(obj.position_x)"
               type="number"
               class="input-field"
-              @change="updateNum('position_x', $event)"
+              @change="updateNumberField('position_x', $event)"
             />
           </div>
           <div>
@@ -86,7 +86,7 @@
               :value="Math.round(obj.position_y)"
               type="number"
               class="input-field"
-              @change="updateNum('position_y', $event)"
+              @change="updateNumberField('position_y', $event)"
             />
           </div>
           <div>
@@ -95,7 +95,7 @@
               :value="Math.round(obj.position_z)"
               type="number"
               class="input-field"
-              @change="updateNum('position_z', $event)"
+              @change="updateNumberField('position_z', $event)"
             />
           </div>
         </div>
@@ -105,7 +105,7 @@
             :value="Math.round((obj.rotation_y * 180) / Math.PI)"
             type="number"
             class="input-field"
-            @change="(e) => updateNum('rotation_y', e, Math.PI / 180)"
+            @change="(event) => updateNumberField('rotation_y', event, Math.PI / 180)"
           />
         </div>
       </div>
@@ -118,12 +118,12 @@
             :value="obj.color"
             type="color"
             class="w-12 h-9 rounded cursor-pointer border border-slate-600 bg-transparent"
-            @input="(e) => update('color', (e.target as HTMLInputElement).value)"
+            @input="(event) => updateObjectField('color', (event.target as HTMLInputElement).value)"
           />
           <input
             :value="obj.color"
             class="input-field font-mono"
-            @change="update('color', ($event.target as HTMLInputElement).value)"
+            @change="updateObjectField('color', ($event.target as HTMLInputElement).value)"
           />
         </div>
 
@@ -135,7 +135,7 @@
             class="w-6 h-6 rounded border-2 transition-transform hover:scale-110"
             :class="obj.color === c ? 'border-blue-400' : 'border-transparent'"
             :style="{ backgroundColor: c }"
-            @click="update('color', c)"
+            @click="updateObjectField('color', c)"
           />
         </div>
       </div>
@@ -146,7 +146,7 @@
         <select
           :value="obj.material_template_id || ''"
           class="input-field"
-          @change="update('material_template_id', ($event.target as HTMLSelectElement).value || null)"
+          @change="updateObjectField('material_template_id', ($event.target as HTMLSelectElement).value || null)"
         >
           <option value="">— brak —</option>
           <option v-for="mat in store.state.materialTemplates" :key="mat.id" :value="mat.id">
@@ -188,26 +188,54 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useAppStore } from "../composables/useAppStore";
+import { OBJECT_COLOR_PALETTE } from "../lib/objectPresets";
+import type { FurnitureObject } from "../types";
 
 const store = useAppStore();
 
 const obj = computed(() => store.firstSelectedObject.value);
 
-const colorPalette = [
-  "#8B7355", "#C4A882", "#F5DEB3", "#D2B48C",
-  "#A0522D", "#6B3F28", "#2F4F4F", "#556B2F",
-  "#FFFFFF", "#C0C0C0", "#808080", "#303030",
-  "#4169E1", "#DC143C", "#228B22", "#FF8C00",
-];
+const colorPalette = OBJECT_COLOR_PALETTE;
 
-function update(field: string, value: unknown) {
+type EditableObjectField =
+  | "name"
+  | "width"
+  | "height"
+  | "depth"
+  | "position_x"
+  | "position_y"
+  | "position_z"
+  | "rotation_y"
+  | "color"
+  | "material_template_id";
+
+type NumericObjectField =
+  | "width"
+  | "height"
+  | "depth"
+  | "position_x"
+  | "position_y"
+  | "position_z"
+  | "rotation_y";
+
+function updateObjectField<Key extends EditableObjectField>(
+  field: Key,
+  value: FurnitureObject[Key],
+) {
   if (!obj.value) return;
-  store.updateObject(obj.value.id, { [field]: value } as any);
+  store.updateObject(obj.value.id, { [field]: value });
 }
 
-function updateNum(field: string, e: Event, multiplier = 1) {
-  const val = parseFloat((e.target as HTMLInputElement).value) * multiplier;
-  if (!isNaN(val)) update(field, val);
+function updateNumberField(
+  field: NumericObjectField,
+  event: Event,
+  multiplier = 1,
+) {
+  const value =
+    Number.parseFloat((event.target as HTMLInputElement).value) * multiplier;
+  if (!Number.isNaN(value)) {
+    updateObjectField(field, value);
+  }
 }
 
 async function onDuplicate() {

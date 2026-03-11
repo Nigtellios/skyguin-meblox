@@ -153,13 +153,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from "vue";
+import { computed, reactive, ref } from "vue";
 import { api } from "../composables/useApi";
-import type { MaterialTemplate, MaterialLayer, Side, LayerType } from "../types";
-import { SIDE_LABELS, OPPOSITE_SIDES, LAYER_TYPE_LABELS } from "../types";
+import type {
+  LayerType,
+  MaterialLayer,
+  MaterialTemplate,
+  Side,
+} from "../types";
+import { LAYER_TYPE_LABELS, OPPOSITE_SIDES, SIDE_LABELS } from "../types";
 import SideTile from "./SideTile.vue";
 
-const props = defineProps<{ template: MaterialTemplate }>();
+type ReadonlyMaterialTemplate = Readonly<Omit<MaterialTemplate, "layers">> & {
+  readonly layers: readonly MaterialLayer[];
+};
+
+const props = defineProps<{ template: ReadonlyMaterialTemplate }>();
 const emit = defineEmits<{ back: []; reload: [] }>();
 
 const selectedSide = ref<Side | null>(null);
@@ -174,21 +183,25 @@ const newLayer = reactive({
 
 const layerTypes = LAYER_TYPE_LABELS;
 
-const sideLabel = computed(() => selectedSide.value ? SIDE_LABELS[selectedSide.value] : "");
+const sideLabel = computed(() =>
+  selectedSide.value ? SIDE_LABELS[selectedSide.value] : "",
+);
 const oppositeSideLabel = computed(() =>
-  selectedSide.value ? SIDE_LABELS[OPPOSITE_SIDES[selectedSide.value]] : ""
+  selectedSide.value ? SIDE_LABELS[OPPOSITE_SIDES[selectedSide.value]] : "",
 );
 
-function layersFor(side: string): MaterialLayer[] {
-  return props.template.layers.filter((l) => l.side === side);
+function layersFor(side: Side) {
+  return props.template.layers.filter((layer) => layer.side === side);
 }
 
 function layerTypeLabel(type: string): string {
   return LAYER_TYPE_LABELS[type as LayerType] ?? type;
 }
 
-async function save(field: string, value: string) {
-  await api.materials.update(props.template.id, { [field]: value } as any);
+type MaterialTemplateField = "name" | "description" | "base_color";
+
+async function save(field: MaterialTemplateField, value: string) {
+  await api.materials.update(props.template.id, { [field]: value });
   emit("reload");
 }
 

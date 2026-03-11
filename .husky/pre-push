@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+set -e
+
+if [ -d "$HOME/.bun/bin" ]; then
+  export PATH="$HOME/.bun/bin:$PATH"
+fi
+
+bun run verify:start

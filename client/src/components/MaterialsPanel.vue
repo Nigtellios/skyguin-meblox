@@ -34,7 +34,7 @@
       <!-- Template Editor -->
       <MaterialTemplateEditor
         v-else-if="currentTemplate"
-        :template="currentTemplate as any"
+        :template="currentTemplate"
         @back="activeMat = null"
         @reload="store.loadMaterials()"
       />
@@ -43,15 +43,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { computed, ref } from "vue";
 import { useAppStore } from "../composables/useAppStore";
 import MaterialTemplateEditor from "./MaterialTemplateEditor.vue";
 
 const store = useAppStore();
 const activeMat = ref<string | null>(null);
 
-const currentTemplate = computed(() =>
-  store.state.materialTemplates.find((m) => m.id === activeMat.value) ?? null
+const currentTemplate = computed(
+  () =>
+    store.state.materialTemplates.find((m) => m.id === activeMat.value) ?? null,
 );
 
 async function createNew() {

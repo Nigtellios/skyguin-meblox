@@ -1,17 +1,14 @@
 import type {
-  Project,
-  FurnitureObject,
-  MaterialTemplate,
-  MaterialLayer,
   ComponentGroup,
+  FurnitureObject,
+  MaterialLayer,
+  MaterialTemplate,
+  Project,
 } from "../types";
 
 const BASE = "/api";
 
-async function request<T>(
-  url: string,
-  options?: RequestInit
-): Promise<T> {
+async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(BASE + url, {
     headers: { "Content-Type": "application/json" },
     ...options,
@@ -28,9 +25,15 @@ export const api = {
   projects: {
     list: () => request<Project[]>("/projects"),
     create: (data: Partial<Project>) =>
-      request<Project>("/projects", { method: "POST", body: JSON.stringify(data) }),
+      request<Project>("/projects", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
     update: (id: string, data: Partial<Project>) =>
-      request<Project>(`/projects/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      request<Project>(`/projects/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/projects/${id}`, { method: "DELETE" }),
   },
@@ -48,18 +51,30 @@ export const api = {
         method: "PUT",
         body: JSON.stringify(data),
       }),
-    updateBatch: (projectId: string, updates: Array<Partial<FurnitureObject> & { id: string }>) =>
+    updateBatch: (
+      projectId: string,
+      updates: Array<Partial<FurnitureObject> & { id: string }>,
+    ) =>
       request<{ success: boolean }>(`/projects/${projectId}/objects/batch`, {
         method: "PUT",
         body: JSON.stringify(updates),
       }),
     delete: (projectId: string, id: string) =>
-      request<{ success: boolean }>(`/projects/${projectId}/objects/${id}`, { method: "DELETE" }),
-    duplicate: (projectId: string, id: string, offset?: { offset_x?: number; offset_z?: number }) =>
-      request<FurnitureObject>(`/projects/${projectId}/objects/${id}/duplicate`, {
-        method: "POST",
-        body: JSON.stringify(offset || {}),
+      request<{ success: boolean }>(`/projects/${projectId}/objects/${id}`, {
+        method: "DELETE",
       }),
+    duplicate: (
+      projectId: string,
+      id: string,
+      offset?: { offset_x?: number; offset_z?: number },
+    ) =>
+      request<FurnitureObject>(
+        `/projects/${projectId}/objects/${id}/duplicate`,
+        {
+          method: "POST",
+          body: JSON.stringify(offset || {}),
+        },
+      ),
   },
 
   components: {
@@ -71,16 +86,26 @@ export const api = {
         body: JSON.stringify(data),
       }),
     delete: (projectId: string, id: string) =>
-      request<{ success: boolean }>(`/projects/${projectId}/components/${id}`, { method: "DELETE" }),
+      request<{ success: boolean }>(`/projects/${projectId}/components/${id}`, {
+        method: "DELETE",
+      }),
     sync: (
       projectId: string,
       id: string,
-      data: Partial<Pick<FurnitureObject, "width" | "height" | "depth" | "color" | "material_template_id">>
+      data: Partial<
+        Pick<
+          FurnitureObject,
+          "width" | "height" | "depth" | "color" | "material_template_id"
+        >
+      >,
     ) =>
-      request<FurnitureObject[]>(`/projects/${projectId}/components/${id}/sync`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
+      request<FurnitureObject[]>(
+        `/projects/${projectId}/components/${id}/sync`,
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        },
+      ),
   },
 
   materials: {
@@ -96,23 +121,40 @@ export const api = {
         body: JSON.stringify(data),
       }),
     delete: (id: string) =>
-      request<{ success: boolean }>(`/material-templates/${id}`, { method: "DELETE" }),
+      request<{ success: boolean }>(`/material-templates/${id}`, {
+        method: "DELETE",
+      }),
 
     layers: {
-      create: (templateId: string, data: Omit<Partial<MaterialLayer>, 'is_bilateral'> & { is_bilateral?: boolean }) =>
+      create: (
+        templateId: string,
+        data: Omit<Partial<MaterialLayer>, "is_bilateral"> & {
+          is_bilateral?: boolean;
+        },
+      ) =>
         request<MaterialLayer[]>(`/material-templates/${templateId}/layers`, {
           method: "POST",
           body: JSON.stringify(data),
         }),
-      update: (templateId: string, layerId: string, data: Partial<MaterialLayer>) =>
-        request<MaterialLayer[]>(`/material-templates/${templateId}/layers/${layerId}`, {
-          method: "PUT",
-          body: JSON.stringify(data),
-        }),
+      update: (
+        templateId: string,
+        layerId: string,
+        data: Partial<MaterialLayer>,
+      ) =>
+        request<MaterialLayer[]>(
+          `/material-templates/${templateId}/layers/${layerId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(data),
+          },
+        ),
       delete: (templateId: string, layerId: string) =>
-        request<{ success: boolean }>(`/material-templates/${templateId}/layers/${layerId}`, {
-          method: "DELETE",
-        }),
+        request<{ success: boolean }>(
+          `/material-templates/${templateId}/layers/${layerId}`,
+          {
+            method: "DELETE",
+          },
+        ),
     },
   },
 };

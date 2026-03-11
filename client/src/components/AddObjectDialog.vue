@@ -88,8 +88,9 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed } from "vue";
+import { computed, reactive } from "vue";
 import { useAppStore } from "../composables/useAppStore";
+import { OBJECT_PRESETS, type ObjectPreset } from "../lib/objectPresets";
 
 const props = defineProps<{
   initialPosition?: { x: number; z: number };
@@ -102,13 +103,7 @@ const emit = defineEmits<{
 
 const store = useAppStore();
 
-const presets = [
-  { label: "Bok 720×600×18", width: 18, height: 720, depth: 600, name: "Bok korpusu" },
-  { label: "Półka 600×30×580", width: 600, height: 30, depth: 580, name: "Półka" },
-  { label: "Dno 600×18×580", width: 600, height: 18, depth: 580, name: "Dno korpusu" },
-  { label: "Front 200×720×18", width: 200, height: 720, depth: 18, name: "Front" },
-  { label: "Blat 800×38×600", width: 800, height: 38, depth: 600, name: "Blat" },
-];
+const presets = OBJECT_PRESETS;
 
 const form = reactive({
   name: "Nowy element",
@@ -119,13 +114,15 @@ const form = reactive({
   material_template_id: "",
 });
 
-const isValid = computed(() => form.name.trim() && form.width > 0 && form.height > 0 && form.depth > 0);
+const isValid = computed(
+  () => form.name.trim() && form.width > 0 && form.height > 0 && form.depth > 0,
+);
 
-function applyPreset(p: typeof presets[0]) {
-  form.name = p.name;
-  form.width = p.width;
-  form.height = p.height;
-  form.depth = p.depth;
+function applyPreset(preset: ObjectPreset) {
+  form.name = preset.name;
+  form.width = preset.width;
+  form.height = preset.height;
+  form.depth = preset.depth;
 }
 
 async function onCreate() {

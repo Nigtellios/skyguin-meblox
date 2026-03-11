@@ -1,6 +1,6 @@
-import { ref, shallowRef, onUnmounted } from "vue";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { onUnmounted, ref } from "vue";
 import type { FurnitureObject, GridConfig } from "../types";
 
 // Scale factor: 1 Three.js unit = 1mm
@@ -31,7 +31,7 @@ export function useScene(canvas: HTMLCanvasElement) {
     45,
     canvas.clientWidth / canvas.clientHeight,
     0.01,
-    1000
+    1000,
   );
   camera.position.set(2, 1.5, 2);
   camera.lookAt(0, 0, 0);
@@ -65,7 +65,10 @@ export function useScene(canvas: HTMLCanvasElement) {
 
   // ---- Floor ----
   const floorGeom = new THREE.PlaneGeometry(20, 20);
-  const floorMat = new THREE.MeshLambertMaterial({ color: 0x2a2a3e, side: THREE.DoubleSide });
+  const floorMat = new THREE.MeshLambertMaterial({
+    color: 0x2a2a3e,
+    side: THREE.DoubleSide,
+  });
   const floor = new THREE.Mesh(floorGeom, floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
@@ -78,8 +81,15 @@ export function useScene(canvas: HTMLCanvasElement) {
 
   function buildGrid(config: GridConfig) {
     // Remove old grid
-    if (gridHelper) { scene.remove(gridHelper); gridHelper.dispose(); gridHelper = null; }
-    if (gridLines) { scene.remove(gridLines); gridLines = null; }
+    if (gridHelper) {
+      scene.remove(gridHelper);
+      gridHelper.dispose();
+      gridHelper = null;
+    }
+    if (gridLines) {
+      scene.remove(gridLines);
+      gridLines = null;
+    }
 
     if (!config.visible) return;
 
@@ -95,7 +105,10 @@ export function useScene(canvas: HTMLCanvasElement) {
   buildGrid({ visible: true, sizeX: 100, sizeY: 100, sizeZ: 100, unit: "mm" });
 
   // ---- Object Materials ----
-  function createObjectMaterial(color: string, selected: boolean): THREE.MeshPhongMaterial {
+  function createObjectMaterial(
+    color: string,
+    selected: boolean,
+  ): THREE.MeshPhongMaterial {
     const mat = new THREE.MeshPhongMaterial({
       color: new THREE.Color(color),
       shininess: 30,
@@ -115,7 +128,10 @@ export function useScene(canvas: HTMLCanvasElement) {
     if (existing) mesh.remove(existing);
 
     const edges = new THREE.EdgesGeometry(mesh.geometry);
-    const lineMat = new THREE.LineBasicMaterial({ color: 0x4488ff, linewidth: 2 });
+    const lineMat = new THREE.LineBasicMaterial({
+      color: 0x4488ff,
+      linewidth: 2,
+    });
     const wireframe = new THREE.LineSegments(edges, lineMat);
     wireframe.name = "__selection__";
     mesh.add(wireframe);
@@ -139,7 +155,7 @@ export function useScene(canvas: HTMLCanvasElement) {
     mesh.position.set(
       obj.position_x * SCALE,
       (obj.position_y + obj.height / 2) * SCALE, // center vertically: place base at position_y, mesh center at +half height
-      obj.position_z * SCALE
+      obj.position_z * SCALE,
     );
     mesh.rotation.y = obj.rotation_y;
     mesh.castShadow = true;
@@ -193,7 +209,7 @@ export function useScene(canvas: HTMLCanvasElement) {
     mesh.position.set(
       obj.position_x * SCALE,
       (obj.position_y + obj.height / 2) * SCALE, // center vertically: base at position_y, mesh center at +half height
-      obj.position_z * SCALE
+      obj.position_z * SCALE,
     );
     mesh.rotation.y = obj.rotation_y;
   }
@@ -207,7 +223,10 @@ export function useScene(canvas: HTMLCanvasElement) {
     objectMeshMap.delete(id);
   }
 
-  function syncObjects(objects: FurnitureObject[], selIds: string[]) {
+  function syncObjects(
+    objects: readonly FurnitureObject[],
+    selIds: readonly string[],
+  ) {
     const newIds = new Set(objects.map((o) => o.id));
     selectedIds.value = new Set(selIds);
 
@@ -255,18 +274,22 @@ export function useScene(canvas: HTMLCanvasElement) {
 
     if (intersects.length > 0) {
       const hit = intersects[0].object as THREE.Mesh;
-      return hit.userData.id as string || null;
+      return (hit.userData.id as string) || null;
     }
     return null;
   }
 
   // Drag-to-move support
-  let isDragging = ref(false);
+  const isDragging = ref(false);
   let dragObjectId: string | null = null;
-  let dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  let dragOffset = new THREE.Vector3();
+  const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const dragOffset = new THREE.Vector3();
 
-  function startDrag(event: MouseEvent, objectId: string, onPositionChange: (id: string, x: number, z: number) => void) {
+  function startDrag(
+    event: MouseEvent,
+    objectId: string,
+    onPositionChange: (id: string, x: number, z: number) => void,
+  ) {
     dragObjectId = objectId;
     isDragging.value = true;
     controls.enabled = false;
@@ -280,7 +303,11 @@ export function useScene(canvas: HTMLCanvasElement) {
 
     raycaster.setFromCamera(pointer, camera);
     const planePoint = new THREE.Vector3();
-    dragPlane.set(new THREE.Vector3(0, 1, 0), -mesh.position.y + (mesh.geometry as THREE.BoxGeometry).parameters.height / 2);
+    dragPlane.set(
+      new THREE.Vector3(0, 1, 0),
+      -mesh.position.y +
+        (mesh.geometry as THREE.BoxGeometry).parameters.height / 2,
+    );
     raycaster.ray.intersectPlane(dragPlane, planePoint);
     dragOffset.copy(mesh.position).sub(planePoint);
 

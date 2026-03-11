@@ -102,13 +102,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
+import ComponentsPanel from "./components/ComponentsPanel.vue";
+import GridSettingsPanel from "./components/GridSettingsPanel.vue";
+import MaterialsPanel from "./components/MaterialsPanel.vue";
+import ObjectPropertiesPanel from "./components/ObjectPropertiesPanel.vue";
+import ObjectsPanel from "./components/ObjectsPanel.vue";
 import SceneCanvas from "./components/SceneCanvas.vue";
 import ToolButton from "./components/ToolButton.vue";
-import ObjectsPanel from "./components/ObjectsPanel.vue";
-import ObjectPropertiesPanel from "./components/ObjectPropertiesPanel.vue";
-import MaterialsPanel from "./components/MaterialsPanel.vue";
-import GridSettingsPanel from "./components/GridSettingsPanel.vue";
-import ComponentsPanel from "./components/ComponentsPanel.vue";
 import { useAppStore } from "./composables/useAppStore";
 import type { AppPanel, SceneMode } from "./types";
 
@@ -166,17 +166,27 @@ function togglePanel(id: AppPanel) {
 
 const activePanelComponent = computed(() => {
   switch (store.state.activePanel) {
-    case "objects": return ObjectsPanel;
-    case "object-props": return ObjectPropertiesPanel;
-    case "materials": return MaterialsPanel;
-    case "components": return ComponentsPanel;
-    case "grid": return GridSettingsPanel;
-    default: return null;
+    case "objects":
+      return ObjectsPanel;
+    case "object-props":
+      return ObjectPropertiesPanel;
+    case "materials":
+      return MaterialsPanel;
+    case "components":
+      return ComponentsPanel;
+    case "grid":
+      return GridSettingsPanel;
+    default:
+      return null;
   }
 });
 
 const modeLabel = computed(() => {
-  const labels: Record<string, string> = { select: "Zaznaczanie", move: "Przesuwanie", rotate: "Obracanie" };
+  const labels: Record<string, string> = {
+    select: "Zaznaczanie",
+    move: "Przesuwanie",
+    rotate: "Obracanie",
+  };
   return labels[store.state.sceneMode] ?? "";
 });
 

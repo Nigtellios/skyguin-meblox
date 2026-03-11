@@ -1,18 +1,17 @@
 import { Database } from "bun:sqlite";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = join(__dirname, "../../database.sqlite");
 
-export const db = new Database(DB_PATH, { create: true });
+export function configureDatabase(database: Database) {
+  database.exec("PRAGMA journal_mode = WAL;");
+  database.exec("PRAGMA foreign_keys = ON;");
+}
 
-// Enable WAL mode for better performance
-db.exec("PRAGMA journal_mode = WAL;");
-db.exec("PRAGMA foreign_keys = ON;");
-
-export function initializeDatabase() {
-  db.exec(`
+export function initializeDatabase(database: Database) {
+  database.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -77,14 +76,36 @@ export function initializeDatabase() {
     );
   `);
 
-  // Seed a default project if none exists
-  const existing = db.query("SELECT id FROM projects LIMIT 1").get();
-  if (!existing) {
+  const existingProject = database
+    .query("SELECT id FROM projects LIMIT 1")
+    .get();
+  if (!existingProject) {
     const now = Date.now();
     const defaultProjectId = crypto.randomUUID();
-    db.query(
-      `INSERT INTO projects (id, name, description, grid_size_mm, grid_visible, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(defaultProjectId, "Projekt 1", "Domyślny projekt", 100, 1, now, now);
+    database
+      .query(
+        `INSERT INTO projects (id, name, description, grid_size_mm, grid_visible, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(defaultProjectId, "Projekt 1", "Domyślny projekt", 100, 1, now, now);
   }
+}
+
+export function createDatabase(dbPath: string) {
+  const database = new Database(dbPath, { create: true });
+  configureDatabase(database);
+  initializeDatabase(database);
+  return database;
+}
+
+let databaseInstance: Database | null = null;
+
+export function getDatabase() {
+  if (!databaseInstance) {
+    databaseInstance = new Database(DB_PATH, { create: true });
+    configureDatabase(databaseInstance);
+    initializeDatabase(databaseInstance);
+  }
+
+  return databaseInstance;
 }
