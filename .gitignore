@@ -140,7 +140,6 @@ vite.config.ts.timestamp-*
 
 # Bun
 bun.lockb
-client/bun.lockb
 
 # SQLite WAL files (transient, not needed in repo)
 *.sqlite-shm
@@ -149,7 +148,5 @@ client/bun.lockb
 # Client build artifacts
 client/dist/
 
-
-# Client npm lockfile is not used; Bun lockfile is authoritative
+# npm lockfile is not used; Bun lockfile is authoritative
 package-lock.json
-client/package-lock.json

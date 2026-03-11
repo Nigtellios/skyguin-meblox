@@ -37,30 +37,28 @@ Aplikacja do projektowania mebli. Prosta jak budowa cepa.
 ### Instalacja zależności
 
 ```bash
-# Tooling repo (Biome, Husky, typowanie serwera)
 bun install
-
-# Zależności aplikacji klienckiej pod Buna
-cd client && bun install && cd ..
 ```
+
+Repo działa jako **jeden projekt**: klient i serwer współdzielą rootowy `package.json`, jeden lockfile i **jeden `tsconfig.json`**.
 
 ### Tryb deweloperski
 
 ```bash
-# Główna aplikacja Bun (API + serwowanie buildu)
+# API + serwowanie zbudowanego klienta
 bun run dev
 
 # Opcjonalnie: osobny dev server UI do szybkiej iteracji na froncie
 bun run dev:ui
 ```
 
-- `bun run dev` uruchamia jedną aplikację pod jednym runtime Bun na porcie `3001`
-- `bun run dev:ui` wystawia tylko dev server Vite na porcie `5173`
+- `bun run dev` uruchamia aplikację Bun na porcie `3001`
+- `bun run dev:ui` wystawia dev server Vite na porcie `5173`
 
 ### Produkcja
 
 ```bash
-# Zbuduj klienta
+# Typecheck całego projektu i build Vite
 bun run build
 
 # Uruchom serwer (serwuje też zbudowanego klienta)
@@ -73,11 +71,7 @@ Otwórz [http://localhost:3001](http://localhost:3001)
 
 ```
 skyguin-meblox/
-├── server/                  # Bun.js backend
-│   ├── index.ts             # Główny serwer HTTP + router
-│   └── db/
-│       └── database.ts      # SQLite – schemat i inicjalizacja
-├── client/                  # Vue 3 frontend
+├── client/                   # Vue 3 frontend
 │   ├── src/
 │   │   ├── App.vue           # Główny komponent
 │   │   ├── types/index.ts    # Typy TypeScript + Zod schemas
@@ -86,27 +80,32 @@ skyguin-meblox/
 │   │   │   ├── useScene.ts      # Three.js 3D scena
 │   │   │   └── useApi.ts        # REST API client
 │   │   └── components/
-│   │       ├── SceneCanvas.vue           # Płótno 3D + interakcja
-│   │       ├── AddObjectDialog.vue       # Dialog dodawania elementu
-│   │       ├── ObjectsPanel.vue          # Lista elementów
-│   │       ├── ObjectPropertiesPanel.vue # Właściwości zaznaczonego
-│   │       ├── MaterialsPanel.vue        # Szablony materiałów
-│   │       ├── MaterialTemplateEditor.vue # Edytor szablonu
-│   │       ├── SideTile.vue              # Kaffelek boku płyty
-│   │       ├── GridSettingsPanel.vue     # Ustawienia siatki
-│   │       ├── ComponentsPanel.vue       # Komponenty
-│   │       └── ToolButton.vue            # Przycisk paska narzędzi
-│   ├── vite.config.ts
-│   └── package.json
-├── database.sqlite          # Baza danych SQLite (w repozytorium)
-└── package.json             # Root package.json
+│   │       ├── SceneCanvas.vue
+│   │       ├── AddObjectDialog.vue
+│   │       ├── ObjectsPanel.vue
+│   │       ├── ObjectPropertiesPanel.vue
+│   │       ├── MaterialsPanel.vue
+│   │       ├── MaterialTemplateEditor.vue
+│   │       ├── SideTile.vue
+│   │       ├── GridSettingsPanel.vue
+│   │       ├── ComponentsPanel.vue
+│   │       └── ToolButton.vue
+│   └── vite.config.ts        # Konfiguracja Vite klienta
+├── server/                   # Bun.js backend
+│   ├── index.ts              # Główny serwer HTTP + router
+│   └── db/
+│       └── database.ts       # SQLite – schemat i inicjalizacja
+├── tests/                    # Testy Bun dla klienta i serwera
+├── tsconfig.json             # Jedyny TypeScript config dla całego repo
+├── package.json              # Jedyny package.json w repo
+└── database.sqlite           # Baza danych SQLite
 ```
 
 ## Tooling jakości
 
 - `bun run lint:fix` — Biome z autofixem
 - `bun run lint` — kontrolny lint Biome
-- `bun run typecheck` — TypeScript przez Buna (`tsc` dla serwera + `vue-tsc` dla klienta)
+- `bun run typecheck` — jeden `tsconfig.json`, sprawdzany przez `tsc` i `vue-tsc`
 - `bun run test:run` — pełne testy w `bun test`
 - `bun run verify:start` — build aplikacji i sprawdzenie, czy startuje i działa ponad 5 sekund
 
