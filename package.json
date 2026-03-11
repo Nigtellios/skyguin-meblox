@@ -16,7 +16,7 @@
     "test:run": "bun test --bail",
     "verify:start": "bun run build && bun run scripts/verify-start.ts",
     "prepare": "husky",
-    "install:all": "npm install && bun install --cwd client"
+    "install:all": "bun install && bun install --cwd client"
   },
   "private": true,
   "devDependencies": {

@@ -38,7 +38,7 @@ Aplikacja do projektowania mebli. Prosta jak budowa cepa.
 
 ```bash
 # Tooling repo (Biome, Husky, typowanie serwera)
-npm install
+bun install
 
 # Zależności aplikacji klienckiej pod Buna
 cd client && bun install && cd ..

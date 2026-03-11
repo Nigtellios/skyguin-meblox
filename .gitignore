@@ -151,4 +151,5 @@ client/dist/
 
 
 # Client npm lockfile is not used; Bun lockfile is authoritative
+package-lock.json
 client/package-lock.json
