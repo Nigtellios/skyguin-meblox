@@ -2,6 +2,7 @@
   <canvas
     ref="canvasRef"
     class="w-full h-full block"
+    :class="store.state.sceneMode === 'snap' ? 'cursor-crosshair' : ''"
     @mousedown="onMouseDown"
     @click="onClick"
     @contextmenu.prevent="onContextMenu"
@@ -40,10 +41,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch, watchEffect } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { useAppStore } from "../composables/useAppStore";
 import { useScene } from "../composables/useScene";
 import AddObjectDialog from "./AddObjectDialog.vue";
+
+const emit = defineEmits<{
+  "snap-target-selected": [targetId: string];
+}>();
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const store = useAppStore();
@@ -98,6 +103,9 @@ function onMouseDown(e: MouseEvent) {
   if (!scene) return;
   if (e.button !== 0) return;
 
+  // In snap mode, don't start drag
+  if (store.state.sceneMode === "snap") return;
+
   const id = scene.pickObject(e);
 
   if (store.state.sceneMode === "move" && id) {
@@ -128,6 +136,15 @@ function onClick(e: MouseEvent) {
   }
 
   const id = scene.pickObject(e);
+
+  // In snap mode: clicking an object snaps moving object to it
+  if (store.state.sceneMode === "snap") {
+    if (id && !store.state.selectedObjectIds.includes(id)) {
+      emit("snap-target-selected", id);
+    }
+    return;
+  }
+
   const isMulti = e.ctrlKey || e.metaKey || e.shiftKey;
 
   if (id) {

@@ -2,8 +2,10 @@ import { computed, reactive, readonly } from "vue";
 import type {
   AppPanel,
   ComponentGroup,
+  ContextMode,
   FurnitureObject,
   GridConfig,
+  HistoryEntry,
   MaterialTemplate,
   Project,
   SceneMode,
@@ -20,15 +22,23 @@ const state = reactive({
   objects: [] as FurnitureObject[],
   selectedObjectIds: [] as string[],
 
+  // Clipboard
+  clipboard: null as FurnitureObject[] | null,
+
   // Materials
   materialTemplates: [] as MaterialTemplate[],
 
   // Components
   componentGroups: [] as ComponentGroup[],
 
+  // History
+  historyEntries: [] as HistoryEntry[],
+
   // UI
   activePanel: "none" as AppPanel,
   sceneMode: "select" as SceneMode,
+  contextMode: "none" as ContextMode,
+  showProjectsModal: false,
 
   // Grid
   grid: {
@@ -77,8 +87,11 @@ async function loadProjects() {
 async function selectProject(id: string) {
   state.currentProjectId = id;
   state.selectedObjectIds = [];
+  state.contextMode = "none";
+  state.historyEntries = [];
   await loadObjects();
   await loadComponents();
+  await loadHistory();
   // Sync grid from project
   const proj = state.projects.find((p) => p.id === id);
   if (proj) {
@@ -118,11 +131,28 @@ async function loadObjects() {
   state.objects = await api.objects.list(state.currentProjectId);
 }
 
+// ---- History helpers ----
+async function recordHistory(actionType: string, label: string) {
+  if (!state.currentProjectId) return;
+  const snapshot = JSON.stringify(state.objects);
+  try {
+    const entry = await api.history.add(state.currentProjectId, {
+      action_type: actionType,
+      action_label: label,
+      snapshot,
+    });
+    state.historyEntries.push(entry);
+  } catch {
+    // History recording is best-effort
+  }
+}
+
 async function createObject(data: Partial<FurnitureObject>) {
   if (!state.currentProjectId) return;
   const obj = await api.objects.create(state.currentProjectId, data);
   state.objects.push(obj);
   selectObject(obj.id, false);
+  await recordHistory("create_object", `Dodano: ${obj.name}`);
   return obj;
 }
 
@@ -158,6 +188,22 @@ async function updateObject(id: string, data: Partial<FurnitureObject>) {
       }
     }
   }
+
+  // Record history for significant changes
+  const label = (() => {
+    if (data.color !== undefined) return `Zmieniono kolor: ${updated.name}`;
+    if (
+      data.width !== undefined ||
+      data.height !== undefined ||
+      data.depth !== undefined
+    )
+      return `Zmieniono wymiary: ${updated.name}`;
+    if (data.name !== undefined) return `Zmieniono nazwę: ${updated.name}`;
+    if (data.material_template_id !== undefined)
+      return `Zmieniono materiał: ${updated.name}`;
+    return `Edytowano: ${updated.name}`;
+  })();
+  await recordHistory("update_object", label);
 }
 
 async function updateObjectPosition(
@@ -173,13 +219,21 @@ async function updateObjectPosition(
   const updated = await api.objects.update(state.currentProjectId, id, pos);
   const idx = state.objects.findIndex((o) => o.id === id);
   if (idx >= 0) state.objects[idx] = updated;
+  const obj = state.objects.find((o) => o.id === id);
+  const label =
+    pos.rotation_y !== undefined
+      ? `Obrócono: ${obj?.name ?? id}`
+      : `Przesunięto: ${obj?.name ?? id}`;
+  await recordHistory("move_object", label);
 }
 
 async function deleteObject(id: string) {
   if (!state.currentProjectId) return;
+  const obj = state.objects.find((o) => o.id === id);
   await api.objects.delete(state.currentProjectId, id);
   state.objects = state.objects.filter((o) => o.id !== id);
   state.selectedObjectIds = state.selectedObjectIds.filter((sid) => sid !== id);
+  await recordHistory("delete_object", `Usunięto: ${obj?.name ?? id}`);
 }
 
 async function duplicateObject(id: string) {
@@ -187,6 +241,7 @@ async function duplicateObject(id: string) {
   const obj = await api.objects.duplicate(state.currentProjectId, id);
   state.objects.push(obj);
   selectObject(obj.id, false);
+  await recordHistory("duplicate_object", `Zduplikowano: ${obj.name}`);
   return obj;
 }
 
@@ -205,11 +260,20 @@ function selectObject(id: string, multiSelect = false) {
   }
   if (state.selectedObjectIds.length > 0) {
     state.activePanel = "object-props";
+    if (state.contextMode === "none") {
+      state.contextMode = "object-actions";
+    }
   }
 }
 
 function deselectAll() {
   state.selectedObjectIds = [];
+  if (
+    state.contextMode === "object-actions" ||
+    state.contextMode === "move-controls"
+  ) {
+    state.contextMode = "none";
+  }
 }
 
 // ---- Components ----
@@ -285,6 +349,105 @@ function setSceneMode(mode: SceneMode) {
   state.sceneMode = mode;
 }
 
+function setContextMode(mode: ContextMode) {
+  state.contextMode = mode;
+}
+
+function setShowProjectsModal(show: boolean) {
+  state.showProjectsModal = show;
+}
+
+// ---- History ----
+async function loadHistory() {
+  if (!state.currentProjectId) return;
+  try {
+    state.historyEntries = await api.history.list(state.currentProjectId);
+  } catch (error) {
+    console.error("Failed to load history:", error);
+    state.historyEntries = [];
+  }
+}
+
+async function revertToHistory(historyId: string) {
+  if (!state.currentProjectId) return;
+  const result = await api.history.revert(state.currentProjectId, historyId);
+  state.objects = result.objects;
+  state.selectedObjectIds = [];
+  state.contextMode = "none";
+  // Reload history after revert
+  await loadHistory();
+}
+
+// ---- Clipboard ----
+function copySelected() {
+  if (state.selectedObjectIds.length === 0) return;
+  state.clipboard = state.objects.filter((o) =>
+    state.selectedObjectIds.includes(o.id),
+  );
+}
+
+async function pasteClipboard() {
+  if (!state.clipboard || state.clipboard.length === 0) return;
+  if (!state.currentProjectId) return;
+  const OFFSET = 50;
+  const pasted: FurnitureObject[] = [];
+  for (const src of state.clipboard) {
+    const obj = await api.objects.create(state.currentProjectId, {
+      ...src,
+      id: undefined,
+      name: `${src.name} (kopia)`,
+      position_x: src.position_x + OFFSET,
+      position_z: src.position_z + OFFSET,
+      component_id: null,
+      is_independent: 0,
+    });
+    state.objects.push(obj);
+    pasted.push(obj);
+  }
+  if (pasted.length > 0) {
+    state.selectedObjectIds = pasted.map((o) => o.id);
+    const label =
+      pasted.length === 1
+        ? `Wklejono: ${pasted[0].name}`
+        : `Wklejono ${pasted.length} elementów`;
+    await recordHistory("paste_objects", label);
+  }
+}
+
+// ---- Snap to edge ----
+function snapObjectToEdge(movingId: string, targetId: string) {
+  const moving = state.objects.find((o) => o.id === movingId);
+  const target = state.objects.find((o) => o.id === targetId);
+  if (!moving || !target) return null;
+
+  // Find nearest edge alignment
+  const movingRight = moving.position_x + moving.width / 2;
+  const movingLeft = moving.position_x - moving.width / 2;
+  const targetRight = target.position_x + target.width / 2;
+  const targetLeft = target.position_x - target.width / 2;
+  const movingFront = moving.position_z + moving.depth / 2;
+  const movingBack = moving.position_z - moving.depth / 2;
+  const targetFront = target.position_z + target.depth / 2;
+  const targetBack = target.position_z - target.depth / 2;
+
+  const snapOptions = [
+    { delta_x: targetRight - movingLeft, delta_z: 0, label: "prawa→lewa" },
+    { delta_x: targetLeft - movingRight, delta_z: 0, label: "lewa→prawa" },
+    { delta_x: 0, delta_z: targetFront - movingBack, label: "przód→tył" },
+    { delta_x: 0, delta_z: targetBack - movingFront, label: "tył→przód" },
+  ];
+  const best = snapOptions.reduce((a, b) =>
+    Math.abs(a.delta_x) + Math.abs(a.delta_z) <
+    Math.abs(b.delta_x) + Math.abs(b.delta_z)
+      ? a
+      : b,
+  );
+  return {
+    position_x: moving.position_x + best.delta_x,
+    position_z: moving.position_z + best.delta_z,
+  };
+}
+
 // ---- Export ----
 export function useAppStore() {
   return {
@@ -322,5 +485,15 @@ export function useAppStore() {
     setGridConfig,
     setActivePanel,
     setSceneMode,
+    setContextMode,
+    setShowProjectsModal,
+
+    loadHistory,
+    revertToHistory,
+    recordHistory,
+
+    copySelected,
+    pasteClipboard,
+    snapObjectToEdge,
   };
 }

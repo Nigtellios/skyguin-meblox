@@ -1,6 +1,7 @@
 import type {
   ComponentGroup,
   FurnitureObject,
+  HistoryEntry,
   MaterialLayer,
   MaterialTemplate,
   Project,
@@ -156,5 +157,23 @@ export const api = {
           },
         ),
     },
+  },
+
+  history: {
+    list: (projectId: string) =>
+      request<HistoryEntry[]>(`/projects/${projectId}/history`),
+    add: (
+      projectId: string,
+      data: { action_type: string; action_label: string; snapshot: string },
+    ) =>
+      request<HistoryEntry>(`/projects/${projectId}/history`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    revert: (projectId: string, historyId: string) =>
+      request<{ success: boolean; objects: FurnitureObject[] }>(
+        `/projects/${projectId}/history/${historyId}/revert`,
+        { method: "POST" },
+      ),
   },
 };
