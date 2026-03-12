@@ -10,6 +10,7 @@ import type {
   MaterialTemplate,
   ObjectRelation,
   Project,
+  RelationEditorMode,
   SceneMode,
 } from "../types";
 import { api } from "./useApi";
@@ -42,6 +43,19 @@ function createInitialState() {
     sceneMode: "select" as SceneMode,
     contextMode: "none" as ContextMode,
     showProjectsModal: false,
+    relationEditorMode: "visual" as RelationEditorMode,
+    relationAttachSourceId: null as string | null,
+    relationAttachField: "position_x" as ObjectRelation["source_field"],
+    relationAttachSourceAnchor: "end" as NonNullable<
+      ObjectRelation["source_anchor"]
+    >,
+    relationAttachTargetAnchor: "start" as NonNullable<
+      ObjectRelation["target_anchor"]
+    >,
+    relationBuilderMode: "direct" as Extract<
+      ObjectRelation["mode"],
+      "direct" | "relative"
+    >,
 
     // Grid
     grid: {
@@ -349,6 +363,65 @@ export const useAppStore = defineStore("app", () => {
     await recordHistory("delete_relation", "Usunięto relację");
   }
 
+  function setRelationEditorMode(mode: RelationEditorMode) {
+    state.relationEditorMode = mode;
+    state.relationAttachSourceId = null;
+  }
+
+  function setRelationAttachSource(id: string | null) {
+    state.relationAttachSourceId = id;
+  }
+
+  function setRelationAttachField(
+    field: Extract<
+      ObjectRelation["source_field"],
+      "position_x" | "position_y" | "position_z"
+    >,
+  ) {
+    state.relationAttachField = field;
+  }
+
+  function setRelationAttachAnchors(
+    source: NonNullable<ObjectRelation["source_anchor"]>,
+    target: NonNullable<ObjectRelation["target_anchor"]>,
+  ) {
+    state.relationAttachSourceAnchor = source;
+    state.relationAttachTargetAnchor = target;
+  }
+
+  function setRelationBuilderMode(
+    mode: Extract<ObjectRelation["mode"], "direct" | "relative">,
+  ) {
+    state.relationBuilderMode = mode;
+  }
+
+  async function createAttachRelationFromSelection(targetId: string) {
+    if (
+      !state.relationAttachSourceId ||
+      state.relationAttachSourceId === targetId
+    ) {
+      return;
+    }
+
+    await createRelation({
+      source_object_id: state.relationAttachSourceId,
+      target_object_id: targetId,
+      relation_type: "attachment",
+      source_field: state.relationAttachField,
+      target_field: state.relationAttachField,
+      mode: "anchor",
+      source_anchor: state.relationAttachSourceAnchor,
+      target_anchor: state.relationAttachTargetAnchor,
+    });
+
+    state.relationAttachSourceId = null;
+  }
+
+  function resetRelationEditor() {
+    state.relationEditorMode = "visual";
+    state.relationAttachSourceId = null;
+  }
+
   async function toggleObjectIndependent(objectId: string) {
     const obj = state.objects.find((o) => o.id === objectId);
     if (!obj) return;
@@ -392,6 +465,9 @@ export const useAppStore = defineStore("app", () => {
 
   function setActivePanel(panel: AppPanel) {
     state.activePanel = panel;
+    if (panel !== "relations") {
+      resetRelationEditor();
+    }
   }
 
   function setSceneMode(mode: SceneMode) {
@@ -531,6 +607,13 @@ export const useAppStore = defineStore("app", () => {
     setSceneMode,
     setContextMode,
     setShowProjectsModal,
+    setRelationEditorMode,
+    setRelationAttachSource,
+    setRelationAttachField,
+    setRelationAttachAnchors,
+    setRelationBuilderMode,
+    createAttachRelationFromSelection,
+    resetRelationEditor,
     loadHistory,
     revertToHistory,
     recordHistory,

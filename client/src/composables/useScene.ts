@@ -279,6 +279,21 @@ export function useScene(canvas: HTMLCanvasElement) {
     return null;
   }
 
+  function projectObjectToScreen(id: string) {
+    const mesh = objectMeshMap.get(id);
+    if (!mesh) return null;
+
+    const position = mesh.position.clone().project(camera);
+    if (position.z > 1) {
+      return null;
+    }
+
+    return {
+      x: (position.x * 0.5 + 0.5) * canvas.clientWidth,
+      y: (-position.y * 0.5 + 0.5) * canvas.clientHeight,
+    };
+  }
+
   // Drag-to-move support
   const isDragging = ref(false);
   let dragObjectId: string | null = null;
@@ -385,6 +400,7 @@ export function useScene(canvas: HTMLCanvasElement) {
     buildGrid,
     syncObjects,
     pickObject,
+    projectObjectToScreen,
     startDrag,
     addObject,
     updateObject,

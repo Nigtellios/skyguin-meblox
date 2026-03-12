@@ -98,10 +98,16 @@
     <transition name="slide-panel">
       <component
         :is="activePanelComponent"
-        v-if="store.state.activePanel !== 'none' && store.state.activePanel !== 'history'"
+        v-if="
+          store.state.activePanel !== 'none' &&
+          store.state.activePanel !== 'history' &&
+          store.state.activePanel !== 'relations'
+        "
         class="w-80 shrink-0 panel-glass border-l border-slate-700/50 overflow-y-auto z-10"
       />
     </transition>
+
+    <RelationsPanel v-if="store.state.activePanel === 'relations'" />
 
     <!-- Projects Modal -->
     <ProjectsModal
@@ -216,8 +222,6 @@ const activePanelComponent = computed(() => {
       return MaterialsPanel;
     case "components":
       return ComponentsPanel;
-    case "relations":
-      return RelationsPanel;
     case "grid":
       return GridSettingsPanel;
     default:
@@ -369,6 +373,10 @@ function onKeyDown(e: KeyboardEvent) {
 
   // Escape: deselect / exit mode
   if (e.key === "Escape") {
+    if (store.state.activePanel === "relations") {
+      store.setActivePanel("none");
+      return;
+    }
     if (store.state.contextMode !== "none") {
       onDeselect();
     }

@@ -169,6 +169,8 @@ export type ContextMode =
   | "move-controls"
   | "snap-mode";
 
+export type RelationEditorMode = "visual" | "attach";
+
 export const RELATION_DIMENSION_FIELDS = [
   "width",
   "height",
