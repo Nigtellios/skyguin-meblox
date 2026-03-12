@@ -11,7 +11,11 @@ import {
 import {
   FurnitureObjectSchema,
   MaterialTemplateSchema,
+  ObjectRelationSchema,
   OPPOSITE_SIDES,
+  RELATION_FIELD_LABELS,
+  RELATION_MODE_LABELS,
+  RELATION_TYPE_LABELS,
   SIDE_LABELS,
 } from "../client/src/types";
 
@@ -69,5 +73,27 @@ describe("client helpers", () => {
     expect(template.layers).toHaveLength(0);
     expect(OPPOSITE_SIDES.front).toBe("back");
     expect(SIDE_LABELS.left).toBe("Lewo");
+  });
+
+  test("relation schemas describe available synchronization modes", () => {
+    const relation = ObjectRelationSchema.parse({
+      id: "rel-1",
+      project_id: "project-1",
+      source_object_id: "source-1",
+      target_object_id: "target-1",
+      relation_type: "attachment",
+      source_field: "position_x",
+      target_field: "position_x",
+      mode: "anchor",
+      source_anchor: "end",
+      target_anchor: "start",
+      offset_mm: 18,
+      created_at: 1,
+    });
+
+    expect(relation.mode).toBe("anchor");
+    expect(RELATION_TYPE_LABELS.dimension).toContain("Synchronizacja");
+    expect(RELATION_MODE_LABELS.relative).toContain("Relatywna");
+    expect(RELATION_FIELD_LABELS.position_x).toContain("Pozycja");
   });
 });

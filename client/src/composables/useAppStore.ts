@@ -8,6 +8,7 @@ import type {
   GridConfig,
   HistoryEntry,
   MaterialTemplate,
+  ObjectRelation,
   Project,
   SceneMode,
 } from "../types";
@@ -31,6 +32,7 @@ function createInitialState() {
 
     // Components
     componentGroups: [] as ComponentGroup[],
+    relations: [] as ObjectRelation[],
 
     // History
     historyEntries: [] as HistoryEntry[],
@@ -71,6 +73,13 @@ export const useAppStore = defineStore("app", () => {
     selectedObjects.value.length === 1 ? selectedObjects.value[0] : null,
   );
 
+  function objectHasRelations(id: string) {
+    return state.relations.some(
+      (relation) =>
+        relation.source_object_id === id || relation.target_object_id === id,
+    );
+  }
+
   async function loadProjects() {
     try {
       state.loading = true;
@@ -95,6 +104,7 @@ export const useAppStore = defineStore("app", () => {
     state.historyEntries = [];
     await loadObjects();
     await loadComponents();
+    await loadRelations();
     await loadHistory();
 
     const proj = state.projects.find((project) => project.id === id);
@@ -127,6 +137,8 @@ export const useAppStore = defineStore("app", () => {
     if (state.currentProjectId === id) {
       state.currentProjectId = null;
       state.objects = [];
+      state.componentGroups = [];
+      state.relations = [];
       if (state.projects.length > 0) {
         await selectProject(state.projects[0].id);
       }
@@ -195,6 +207,10 @@ export const useAppStore = defineStore("app", () => {
       }
     }
 
+    if (objectHasRelations(id)) {
+      await loadObjects();
+    }
+
     const label = (() => {
       if (data.color !== undefined) return `Zmieniono kolor: ${updated.name}`;
       if (
@@ -227,6 +243,9 @@ export const useAppStore = defineStore("app", () => {
     const updated = await api.objects.update(state.currentProjectId, id, pos);
     const idx = state.objects.findIndex((o) => o.id === id);
     if (idx >= 0) state.objects[idx] = updated;
+    if (objectHasRelations(id)) {
+      await loadObjects();
+    }
     const obj = state.objects.find((o) => o.id === id);
     const label =
       pos.rotation_y !== undefined
@@ -291,6 +310,11 @@ export const useAppStore = defineStore("app", () => {
     state.componentGroups = await api.components.list(state.currentProjectId);
   }
 
+  async function loadRelations() {
+    if (!state.currentProjectId) return;
+    state.relations = await api.relations.list(state.currentProjectId);
+  }
+
   async function createComponent(name: string, objectIds: string[]) {
     if (!state.currentProjectId) return;
     const group = await api.components.create(state.currentProjectId, {
@@ -307,6 +331,22 @@ export const useAppStore = defineStore("app", () => {
     await api.components.delete(state.currentProjectId, id);
     state.componentGroups = state.componentGroups.filter((g) => g.id !== id);
     await loadObjects();
+  }
+
+  async function createRelation(data: Partial<ObjectRelation>) {
+    if (!state.currentProjectId) return;
+    const relation = await api.relations.create(state.currentProjectId, data);
+    state.relations.push(relation);
+    await loadObjects();
+    await recordHistory("create_relation", "Dodano relację");
+    return relation;
+  }
+
+  async function deleteRelation(id: string) {
+    if (!state.currentProjectId) return;
+    await api.relations.delete(state.currentProjectId, id);
+    state.relations = state.relations.filter((relation) => relation.id !== id);
+    await recordHistory("delete_relation", "Usunięto relację");
   }
 
   async function toggleObjectIndependent(objectId: string) {
@@ -476,8 +516,11 @@ export const useAppStore = defineStore("app", () => {
     selectObject,
     deselectAll,
     loadComponents,
+    loadRelations,
     createComponent,
     deleteComponent,
+    createRelation,
+    deleteRelation,
     toggleObjectIndependent,
     loadMaterials,
     createMaterial,

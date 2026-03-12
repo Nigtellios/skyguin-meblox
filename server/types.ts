@@ -56,6 +56,32 @@ export type FurnitureObjectRow = {
   updated_at: number;
 };
 
+export type RelationType = "dimension" | "attachment";
+export type RelationField =
+  | "width"
+  | "height"
+  | "depth"
+  | "position_x"
+  | "position_y"
+  | "position_z";
+export type RelationMode = "direct" | "relative" | "anchor";
+export type RelationAnchor = "start" | "center" | "end";
+
+export type ObjectRelationRow = {
+  id: string;
+  project_id: string;
+  source_object_id: string;
+  target_object_id: string;
+  relation_type: RelationType;
+  source_field: RelationField;
+  target_field: RelationField;
+  mode: RelationMode;
+  source_anchor: RelationAnchor | null;
+  target_anchor: RelationAnchor | null;
+  offset_mm: number;
+  created_at: number;
+};
+
 export type MaterialTemplateWithLayers = MaterialTemplateRow & {
   layers: MaterialLayerRow[];
 };
@@ -79,6 +105,21 @@ export type FurnitureObjectPayload = Partial<
     | "material_template_id"
     | "component_id"
     | "is_independent"
+  >
+>;
+
+export type ObjectRelationPayload = Partial<
+  Pick<
+    ObjectRelationRow,
+    | "source_object_id"
+    | "target_object_id"
+    | "relation_type"
+    | "source_field"
+    | "target_field"
+    | "mode"
+    | "source_anchor"
+    | "target_anchor"
+    | "offset_mm"
   >
 >;
 

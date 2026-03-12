@@ -7,6 +7,7 @@ import { createDatabase } from "../server/db/database";
 import type {
   FurnitureObjectRow,
   MaterialLayerRow,
+  ObjectRelationRow,
   ProjectRow,
 } from "../server/types";
 
@@ -184,6 +185,199 @@ describe("server api", () => {
     );
     expect(sharedObject?.depth).toBe(700);
     expect(independentObject?.depth).not.toBe(700);
+  });
+
+  test("applies direct and relative relations when source dimensions change", async () => {
+    const projects = (await (
+      await request("/api/projects")
+    ).json()) as ProjectRow[];
+    const projectId = projects[0]?.id;
+    expect(projectId).toBeString();
+
+    const sideA = (await (
+      await request(`/api/projects/${projectId}/objects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Bok A",
+          width: 18,
+          height: 700,
+          depth: 560,
+        }),
+      })
+    ).json()) as FurnitureObjectRow;
+
+    const sideB = (await (
+      await request(`/api/projects/${projectId}/objects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Bok B",
+          width: 18,
+          height: 700,
+          depth: 560,
+        }),
+      })
+    ).json()) as FurnitureObjectRow;
+
+    const back = (await (
+      await request(`/api/projects/${projectId}/objects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Plecy",
+          width: 400,
+          height: 400,
+          depth: 18,
+        }),
+      })
+    ).json()) as FurnitureObjectRow;
+
+    const directRelationResponse = await request(
+      `/api/projects/${projectId}/relations`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_object_id: sideA.id,
+          target_object_id: sideB.id,
+          relation_type: "dimension",
+          source_field: "height",
+          target_field: "height",
+          mode: "direct",
+        }),
+      },
+    );
+    expect(directRelationResponse.status).toBe(201);
+
+    const relativeRelationResponse = await request(
+      `/api/projects/${projectId}/relations`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_object_id: sideA.id,
+          target_object_id: back.id,
+          relation_type: "dimension",
+          source_field: "height",
+          target_field: "height",
+          mode: "relative",
+        }),
+      },
+    );
+    expect(relativeRelationResponse.status).toBe(201);
+
+    await request(`/api/projects/${projectId}/objects/${sideA.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ height: 710 }),
+    });
+
+    const objectsAfterUpdate = (await (
+      await request(`/api/projects/${projectId}/objects`)
+    ).json()) as FurnitureObjectRow[];
+
+    expect(
+      objectsAfterUpdate.find((object) => object.id === sideB.id)?.height,
+    ).toBe(710);
+    expect(
+      objectsAfterUpdate.find((object) => object.id === back.id)?.height,
+    ).toBe(410);
+  });
+
+  test("moves attached objects when source width changes and allows relation removal", async () => {
+    const projects = (await (
+      await request("/api/projects")
+    ).json()) as ProjectRow[];
+    const projectId = projects[0]?.id;
+    expect(projectId).toBeString();
+
+    const back = (await (
+      await request(`/api/projects/${projectId}/objects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Plecy",
+          width: 400,
+          height: 400,
+          depth: 18,
+          position_x: 0,
+        }),
+      })
+    ).json()) as FurnitureObjectRow;
+
+    const sideB = (await (
+      await request(`/api/projects/${projectId}/objects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "Bok B",
+          width: 18,
+          height: 700,
+          depth: 560,
+          position_x: 209,
+        }),
+      })
+    ).json()) as FurnitureObjectRow;
+
+    const relationResponse = await request(
+      `/api/projects/${projectId}/relations`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_object_id: back.id,
+          target_object_id: sideB.id,
+          relation_type: "attachment",
+          source_field: "position_x",
+          target_field: "position_x",
+          mode: "anchor",
+          source_anchor: "end",
+          target_anchor: "start",
+        }),
+      },
+    );
+
+    expect(relationResponse.status).toBe(201);
+    const relation = (await relationResponse.json()) as ObjectRelationRow;
+
+    await request(`/api/projects/${projectId}/objects/${back.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ width: 420 }),
+    });
+
+    const afterResize = (await (
+      await request(`/api/projects/${projectId}/objects`)
+    ).json()) as FurnitureObjectRow[];
+    expect(
+      Math.round(
+        afterResize.find((object) => object.id === sideB.id)?.position_x ?? 0,
+      ),
+    ).toBe(219);
+
+    const deleteRelationResponse = await request(
+      `/api/projects/${projectId}/relations/${relation.id}`,
+      {
+        method: "DELETE",
+      },
+    );
+    expect(deleteRelationResponse.status).toBe(200);
+
+    await request(`/api/projects/${projectId}/objects/${back.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ width: 460 }),
+    });
+
+    const afterDetach = (await (
+      await request(`/api/projects/${projectId}/objects`)
+    ).json()) as FurnitureObjectRow[];
+    expect(
+      Math.round(
+        afterDetach.find((object) => object.id === sideB.id)?.position_x ?? 0,
+      ),
+    ).toBe(219);
   });
 
   test("creates bilateral material layers on opposite faces", async () => {

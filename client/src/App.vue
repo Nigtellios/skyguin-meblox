@@ -124,6 +124,7 @@ import MaterialsPanel from "./components/MaterialsPanel.vue";
 import ObjectPropertiesPanel from "./components/ObjectPropertiesPanel.vue";
 import ObjectsPanel from "./components/ObjectsPanel.vue";
 import ProjectsModal from "./components/ProjectsModal.vue";
+import RelationsPanel from "./components/RelationsPanel.vue";
 import SceneCanvas from "./components/SceneCanvas.vue";
 import ToolButton from "./components/ToolButton.vue";
 import { useAppStore } from "./composables/useAppStore";
@@ -183,6 +184,11 @@ const panelToggles: Array<{ id: AppPanel; label: string; icon: string }> = [
     icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zm.01-2.99l7.36-5.73L21 8.07l-9-7-9 7 1.63 1.26 7.37 5.72zm0-11.06l6.61 5.14L12 15.13l-6.62-5.5L12 4.49z"/></svg>`,
   },
   {
+    id: "relations",
+    label: "Relacje",
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7a3 3 0 1 0 2.83 4H14.2a3 3 0 1 0 0-2H9.83A3 3 0 0 0 7 7zm10 6a3 3 0 1 0-2.83 4H9.8a3 3 0 1 0 0 2h4.37A3 3 0 1 0 17 13z"/></svg>`,
+  },
+  {
     id: "grid",
     label: "Siatka",
     // Grid icon
@@ -210,6 +216,8 @@ const activePanelComponent = computed(() => {
       return MaterialsPanel;
     case "components":
       return ComponentsPanel;
+    case "relations":
+      return RelationsPanel;
     case "grid":
       return GridSettingsPanel;
     default:
