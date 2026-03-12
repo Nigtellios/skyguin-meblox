@@ -3,7 +3,7 @@
     <div class="panel-section flex items-center justify-between">
       <h2 class="text-sm font-semibold text-slate-200">Relacje</h2>
       <span class="rounded-full bg-blue-900/40 px-2 py-0.5 text-[11px] text-blue-300">
-        {{ store.state.relations.length }}
+        {{ relations.length }}
       </span>
     </div>
 
@@ -136,7 +136,7 @@
         <div class="text-xs font-medium uppercase tracking-wide text-slate-500">Aktywne relacje</div>
 
         <div
-          v-for="relation in store.state.relations"
+          v-for="relation in relations"
           :key="relation.id"
           class="rounded-lg border border-slate-700 bg-slate-800/30 overflow-hidden"
         >
@@ -158,7 +158,7 @@
           </div>
         </div>
 
-        <div v-if="store.state.relations.length === 0" class="rounded-lg border border-dashed border-slate-700 p-4 text-center text-sm text-slate-500">
+        <div v-if="relations.length === 0" class="rounded-lg border border-dashed border-slate-700 p-4 text-center text-sm text-slate-500">
           Brak relacji. Dodaj pierwszą, aby synchronizować wymiary lub pozycję.
         </div>
       </div>
@@ -180,6 +180,7 @@ import {
 } from "../types";
 
 const store = useAppStore();
+const relations = computed(() => store.state.relations);
 
 const form = reactive({
   source_object_id: "",

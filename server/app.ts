@@ -60,8 +60,11 @@ const POSITION_FIELDS = new Set<RelationField>([
 const RELATION_TYPES = new Set<RelationType>(["dimension", "attachment"]);
 const RELATION_MODES = new Set<RelationMode>(["direct", "relative", "anchor"]);
 const RELATION_ANCHORS = new Set<RelationAnchor>(["start", "center", "end"]);
+const MAX_RELATION_PROPAGATION_DEPTH = 200;
 
-function getAxisDimension(field: RelationField) {
+function getAxisDimension(
+  field: RelationField,
+): Extract<RelationField, "width" | "height" | "depth"> {
   if (field === "position_x") return "width";
   if (field === "position_y") return "height";
   if (field === "position_z") return "depth";
@@ -326,7 +329,7 @@ export function createFetchHandler(database: Database) {
     const processed = new Set<string>();
     let safety = 0;
 
-    while (queue.length > 0 && safety < 200) {
+    while (queue.length > 0 && safety < MAX_RELATION_PROPAGATION_DEPTH) {
       safety += 1;
       const sourceId = queue.shift();
       if (!sourceId) continue;
