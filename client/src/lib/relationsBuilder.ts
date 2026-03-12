@@ -12,6 +12,14 @@ export const BUILDER_NODE_HEADER_HEIGHT = 44;
 export const BUILDER_NODE_ROW_HEIGHT = 34;
 export const BUILDER_NODE_GAP_X = 340;
 export const BUILDER_NODE_GAP_Y = 240;
+export const BUILDER_LAYOUT_PADDING = 48;
+export const BUILDER_LAYOUT_COLUMNS = 3;
+export const BUILDER_BOUNDARY_HEIGHT = 860;
+export const RELATION_LABEL_CHAR_WIDTH_ESTIMATE = 7.2;
+
+export function estimateRelationLabelWidth(text: string, minWidthPx: number) {
+  return Math.max(minWidthPx, text.length * RELATION_LABEL_CHAR_WIDTH_ESTIMATE);
+}
 
 export function getRelationFieldKind(field: BuilderField) {
   if (field === "width" || field === "height" || field === "depth") {
@@ -43,8 +51,12 @@ export function createBuilderLayout(
     (layout, object, index) => {
       layout[object.id] = existing[object.id] ?? {
         id: object.id,
-        x: 48 + (index % 3) * BUILDER_NODE_GAP_X,
-        y: 48 + Math.floor(index / 3) * BUILDER_NODE_GAP_Y,
+        x:
+          BUILDER_LAYOUT_PADDING +
+          (index % BUILDER_LAYOUT_COLUMNS) * BUILDER_NODE_GAP_X,
+        y:
+          BUILDER_LAYOUT_PADDING +
+          Math.floor(index / BUILDER_LAYOUT_COLUMNS) * BUILDER_NODE_GAP_Y,
       };
       return layout;
     },

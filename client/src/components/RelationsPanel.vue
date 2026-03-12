@@ -280,7 +280,7 @@
                 </div>
 
                 <div class="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
-                  <div class="font-medium">Attach source</div>
+                  <div class="font-medium">Źródło attach</div>
                   <div class="mt-2 text-amber-50/90">
                     {{ attachSourceLabel }}
                   </div>
@@ -355,6 +355,8 @@
 import { computed, onUnmounted, reactive, ref, watch } from "vue";
 import { useAppStore } from "../composables/useAppStore";
 import {
+  BUILDER_BOUNDARY_HEIGHT,
+  BUILDER_LAYOUT_PADDING,
   BUILDER_NODE_HEADER_HEIGHT,
   BUILDER_NODE_ROW_HEIGHT,
   type BuilderField,
@@ -362,6 +364,7 @@ import {
   canConnectFields,
   createBuilderEdgePath,
   createBuilderLayout,
+  estimateRelationLabelWidth,
   getFieldAnchorPoint,
   getRelationFieldKind,
 } from "../lib/relationsBuilder";
@@ -381,6 +384,8 @@ const relations = computed(() => store.state.relations);
 const isAttachEditor = computed(
   () => store.state.relationEditorMode === "attach",
 );
+const EDGE_LABEL_MIN_WIDTH = 120;
+const BUILDER_MIN_BOUNDARY_PADDING = 24;
 const fieldGroups = [
   { label: "Wymiary", fields: RELATION_DIMENSION_FIELDS },
   { label: "Pozycja", fields: RELATION_POSITION_FIELDS },
@@ -486,7 +491,7 @@ const builderEdges = computed(() =>
           x: (start.x + end.x) / 2,
           y: (start.y + end.y) / 2 - 16,
           text: labelText,
-          width: Math.max(120, labelText.length * 7),
+          width: estimateRelationLabelWidth(labelText, EDGE_LABEL_MIN_WIDTH),
         },
       };
     })
@@ -502,8 +507,8 @@ function layoutFor(id: string) {
   return (
     nodeLayout.value[id] ?? {
       id,
-      x: 48,
-      y: 48,
+      x: BUILDER_LAYOUT_PADDING,
+      y: BUILDER_LAYOUT_PADDING,
     }
   );
 }
@@ -534,7 +539,7 @@ function formatFieldValue(object: FurnitureObject, field: BuilderField) {
 function canDragField(field: BuilderField) {
   return (
     store.state.relationEditorMode === "visual" &&
-    canConnectFields(field, field, "visual")
+    getFieldKind(field) === "dimension"
   );
 }
 
@@ -637,11 +642,16 @@ function beginNodeDrag(objectId: string, event: MouseEvent) {
       ...nodeLayout.value,
       [objectId]: {
         id: objectId,
-        x: Math.max(24, originX + moveEvent.clientX - startX),
+        x: Math.max(
+          BUILDER_MIN_BOUNDARY_PADDING,
+          originX + moveEvent.clientX - startX,
+        ),
         y: Math.max(
-          24,
+          BUILDER_MIN_BOUNDARY_PADDING,
           Math.min(
-            860 - BUILDER_NODE_HEADER_HEIGHT - BUILDER_NODE_ROW_HEIGHT,
+            BUILDER_BOUNDARY_HEIGHT -
+              BUILDER_NODE_HEADER_HEIGHT -
+              BUILDER_NODE_ROW_HEIGHT,
             originY + moveEvent.clientY - startY,
           ),
         ),
@@ -650,9 +660,7 @@ function beginNodeDrag(objectId: string, event: MouseEvent) {
   };
 
   const onUp = () => {
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onUp);
-    detachNodeDrag = null;
+    detachNodeDrag?.();
   };
 
   detachNodeDrag?.();

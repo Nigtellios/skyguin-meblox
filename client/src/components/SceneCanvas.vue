@@ -3,7 +3,7 @@
     <canvas
       ref="canvasRef"
       class="block h-full w-full"
-      :class="store.state.sceneMode === 'snap' || isAttachMode ? 'cursor-crosshair' : ''"
+      :class="isCrosshairMode ? 'cursor-crosshair' : ''"
       @mousedown="onMouseDown"
       @click="onClick"
       @contextmenu.prevent="onContextMenu"
@@ -69,7 +69,7 @@
       :style="{
         left: `${attachSourceOverlay.x}px`,
         top: `${attachSourceOverlay.y}px`,
-        transform: 'translate(-50%, -150%)',
+        transform: `translate(-50%, ${ATTACH_SOURCE_BADGE_Y_OFFSET})`,
       }"
     >
       Źródło attach: {{ attachSourceOverlay.name }}
@@ -127,12 +127,15 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useAppStore } from "../composables/useAppStore";
 import { useScene } from "../composables/useScene";
+import { estimateRelationLabelWidth } from "../lib/relationsBuilder";
 import {
   RELATION_FIELD_LABELS,
   RELATION_MODE_LABELS,
   RELATION_TYPE_LABELS,
 } from "../types";
 import AddObjectDialog from "./AddObjectDialog.vue";
+
+const ATTACH_SOURCE_BADGE_Y_OFFSET = "-150%";
 
 const emit = defineEmits<{
   "snap-target-selected": [targetId: string];
@@ -171,6 +174,9 @@ const isAttachMode = computed(
   () =>
     store.state.activePanel === "relations" &&
     store.state.relationEditorMode === "attach",
+);
+const isCrosshairMode = computed(
+  () => store.state.sceneMode === "snap" || isAttachMode.value,
 );
 const showRelationOverlay = computed(
   () => store.state.activePanel === "relations",
@@ -256,7 +262,7 @@ function updateRelationOverlay() {
             x: (start.x + end.x) / 2,
             y: (start.y + end.y) / 2 - 12,
             text: labelText,
-            width: Math.max(140, labelText.length * 7.2),
+            width: estimateRelationLabelWidth(labelText, 140),
           },
         };
       })
@@ -291,7 +297,7 @@ function onMouseDown(e: MouseEvent) {
   if (!scene) return;
   if (e.button !== 0) return;
 
-  if (store.state.sceneMode === "snap" || isAttachMode.value) return;
+  if (isCrosshairMode.value) return;
 
   const id = scene.pickObject(e);
 
