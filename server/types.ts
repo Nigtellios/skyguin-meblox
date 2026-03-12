@@ -105,6 +105,19 @@ export type MaterialLayerPayload = Partial<
   is_bilateral?: boolean;
 };
 
+export type HistoryRow = {
+  id: string;
+  project_id: string;
+  action_type: string;
+  action_label: string;
+  snapshot: string;
+  created_at: number;
+};
+
+export type HistoryRevertPayload = {
+  history_id: string;
+};
+
 export type RouteHandler = (
   req: Request,
   params: Record<string, string>,

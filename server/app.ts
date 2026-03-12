@@ -7,6 +7,7 @@ import type {
   DuplicatePayload,
   FurnitureObjectPayload,
   FurnitureObjectRow,
+  HistoryRow,
   MaterialLayerPayload,
   MaterialLayerRow,
   MaterialTemplatePayload,
@@ -811,6 +812,122 @@ export function createFetchHandler(database: Database) {
     return json({ success: true });
   };
 
+  const getHistory = (_req: Request, params: Record<string, string>) =>
+    json(
+      getAll<HistoryRow>(
+        database,
+        "SELECT * FROM project_history WHERE project_id = ? ORDER BY created_at ASC",
+        params.projectId,
+      ),
+    );
+
+  const addHistory = async (req: Request, params: Record<string, string>) => {
+    const body = await parseObjectBody<{
+      action_type?: string;
+      action_label?: string;
+      snapshot?: string;
+    }>(req);
+    const id = crypto.randomUUID();
+    const now = Date.now();
+
+    database
+      .query(
+        "INSERT INTO project_history (id, project_id, action_type, action_label, snapshot, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        id,
+        params.projectId,
+        body.action_type || "unknown",
+        body.action_label || "Zmiana",
+        body.snapshot || "[]",
+        now,
+      );
+
+    return json(
+      getOne<HistoryRow>(
+        database,
+        "SELECT * FROM project_history WHERE id = ?",
+        id,
+      ),
+      201,
+    );
+  };
+
+  const revertHistory = async (
+    _req: Request,
+    params: Record<string, string>,
+  ) => {
+    const entry = getOne<HistoryRow>(
+      database,
+      "SELECT * FROM project_history WHERE id = ?",
+      params.historyId,
+    );
+    if (!entry) return json({ error: "History entry not found" }, 404);
+
+    let objects: FurnitureObjectRow[] = [];
+    try {
+      objects = JSON.parse(entry.snapshot) as FurnitureObjectRow[];
+    } catch {
+      return json({ error: "Invalid snapshot" }, 400);
+    }
+
+    const now = Date.now();
+
+    // Delete all current objects for this project and restore from snapshot.
+    // This replaces all objects atomically to match the snapshotted state,
+    // which is simpler and more reliable than a granular diff/patch approach.
+    database
+      .query("DELETE FROM furniture_objects WHERE project_id = ?")
+      .run(params.projectId);
+
+    // Restore objects from snapshot
+    for (const obj of objects) {
+      database
+        .query(
+          `INSERT INTO furniture_objects (
+            id, project_id, name, width, height, depth,
+            position_x, position_y, position_z, rotation_y,
+            color, material_template_id, component_id, is_independent,
+            created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          obj.id,
+          params.projectId,
+          obj.name,
+          obj.width,
+          obj.height,
+          obj.depth,
+          obj.position_x,
+          obj.position_y,
+          obj.position_z,
+          obj.rotation_y,
+          obj.color,
+          obj.material_template_id,
+          obj.component_id,
+          obj.is_independent,
+          obj.created_at,
+          now,
+        );
+    }
+
+    // Delete history entries after the target entry
+    database
+      .query(
+        "DELETE FROM project_history WHERE project_id = ? AND created_at > ?",
+      )
+      .run(params.projectId, entry.created_at);
+
+    return json({
+      success: true,
+      objects: getAll<FurnitureObjectRow>(
+        database,
+        "SELECT * FROM furniture_objects WHERE project_id = ? ORDER BY created_at ASC",
+        params.projectId,
+      ),
+    });
+  };
+
   addRoute("GET", "/api/projects", () => getProjects());
   addRoute("POST", "/api/projects", (req) => createProject(req));
   addRoute("PUT", "/api/projects/:id", (req, params) =>
@@ -854,6 +971,18 @@ export function createFetchHandler(database: Database) {
     "POST",
     "/api/projects/:projectId/components/:id/sync",
     (req, params) => syncComponent(req, params),
+  );
+
+  addRoute("GET", "/api/projects/:projectId/history", (req, params) =>
+    getHistory(req, params),
+  );
+  addRoute("POST", "/api/projects/:projectId/history", (req, params) =>
+    addHistory(req, params),
+  );
+  addRoute(
+    "POST",
+    "/api/projects/:projectId/history/:historyId/revert",
+    (req, params) => revertHistory(req, params),
   );
 
   addRoute("GET", "/api/material-templates", () => getMaterialTemplates());

@@ -112,7 +112,7 @@ export type GridConfig = {
 };
 
 // Scene state
-export type SceneMode = "select" | "move" | "rotate";
+export type SceneMode = "select" | "move" | "rotate" | "snap";
 
 export type AppPanel =
   | "none"
@@ -120,4 +120,20 @@ export type AppPanel =
   | "materials"
   | "grid"
   | "components"
-  | "object-props";
+  | "object-props"
+  | "history";
+
+export type HistoryEntry = {
+  id: string;
+  project_id: string;
+  action_type: string;
+  action_label: string;
+  snapshot: string;
+  created_at: number;
+};
+
+export type ContextMode =
+  | "none"
+  | "object-actions"
+  | "move-controls"
+  | "snap-mode";

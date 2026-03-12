@@ -74,6 +74,16 @@ export function initializeDatabase(database: Database) {
       FOREIGN KEY (material_template_id) REFERENCES material_templates(id) ON DELETE SET NULL,
       FOREIGN KEY (component_id) REFERENCES component_groups(id) ON DELETE SET NULL
     );
+
+    CREATE TABLE IF NOT EXISTS project_history (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      action_type TEXT NOT NULL,
+      action_label TEXT NOT NULL,
+      snapshot TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    );
   `);
 
   const existingProject = database
