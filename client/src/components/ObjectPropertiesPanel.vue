@@ -193,7 +193,7 @@ import type { FurnitureObject } from "../types";
 
 const store = useAppStore();
 
-const obj = computed(() => store.firstSelectedObject.value);
+const obj = computed(() => store.firstSelectedObject);
 
 const colorPalette = OBJECT_COLOR_PALETTE;
 

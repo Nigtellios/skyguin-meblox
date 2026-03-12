@@ -78,7 +78,7 @@
         :context-mode="store.state.contextMode"
         :scene-mode="store.state.sceneMode"
         :selected-count="store.state.selectedObjectIds.length"
-        :first-selected="store.firstSelectedObject.value"
+        :first-selected="store.firstSelectedObject"
         @add-object="store.setActivePanel('objects')"
         @open-materials="store.setActivePanel('object-props')"
         @set-scene-mode="store.setSceneMode"
@@ -261,7 +261,7 @@ async function onDeleteSelected() {
   const count = store.state.selectedObjectIds.length;
   const msg =
     count === 1
-      ? `Usunąć "${store.firstSelectedObject.value?.name}"?`
+      ? `Usunąć "${store.firstSelectedObject?.name}"?`
       : `Usunąć ${count} elementy?`;
   if (!confirm(msg)) return;
   for (const id of [...store.state.selectedObjectIds]) {
@@ -409,4 +409,3 @@ function onKeyDown(e: KeyboardEvent) {
   opacity: 0;
 }
 </style>
-
