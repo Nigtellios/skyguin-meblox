@@ -312,10 +312,12 @@ export function createFetchHandler(database: Database) {
   }
 
   function getObjectById(id: string) {
-    return getOne<FurnitureObjectRow>(
+    return (
+      getOne<FurnitureObjectRow>(
       database,
       "SELECT * FROM furniture_objects WHERE id = ?",
       id,
+      ) ?? undefined
     );
   }
 
