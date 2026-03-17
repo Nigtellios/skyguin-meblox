@@ -244,6 +244,8 @@ export const useAppStore = defineStore("app", () => {
     await recordHistory("update_object", label);
   }
 
+  let pendingRelationsReloadTimeout: number | null = null;
+
   async function updateObjectPosition(
     id: string,
     pos: {
@@ -258,7 +260,14 @@ export const useAppStore = defineStore("app", () => {
     const idx = state.objects.findIndex((o) => o.id === id);
     if (idx >= 0) state.objects[idx] = updated;
     if (objectHasRelations(id)) {
-      await loadObjects();
+      if (pendingRelationsReloadTimeout !== null) {
+        clearTimeout(pendingRelationsReloadTimeout);
+      }
+      pendingRelationsReloadTimeout = window.setTimeout(async () => {
+        if (!state.currentProjectId) return;
+        await loadObjects();
+        pendingRelationsReloadTimeout = null;
+      }, 100);
     }
     const obj = state.objects.find((o) => o.id === id);
     const label =
