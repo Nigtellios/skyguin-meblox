@@ -397,6 +397,8 @@ function onKeyDown(e: KeyboardEvent) {
       store.setActivePanel("none");
       return;
     }
+    // Let ContextBar handle Escape when move-controls are active
+    if (store.state.contextMode === "move-controls") return;
     if (store.state.contextMode !== "none") {
       onDeselect();
     }
