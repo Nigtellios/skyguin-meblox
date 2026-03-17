@@ -402,6 +402,13 @@ export function createFetchHandler(database: Database) {
         }
       }
     }
+
+    if (safety >= MAX_RELATION_PROPAGATION_DEPTH && queue.length > 0) {
+      console.warn(
+        `syncRelations reached MAX_RELATION_PROPAGATION_DEPTH (${MAX_RELATION_PROPAGATION_DEPTH}) for project ${projectId}; ` +
+          `${queue.length} object(s) remain in the propagation queue.`,
+      );
+    }
   }
 
   function buildRelation(
