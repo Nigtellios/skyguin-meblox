@@ -239,7 +239,6 @@ function updateRelationOverlay() {
     if (!scene || !viewportRef.value || !showRelationOverlay.value) {
       relationOverlay.value = [];
       attachSourceOverlay.value = null;
-      overlayFrame = requestAnimationFrame(next);
       return;
     }
 
