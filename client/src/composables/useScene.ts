@@ -5,6 +5,8 @@ import type { FurnitureObject, GridConfig } from "../types";
 
 // Scale factor: 1 Three.js unit = 1mm
 const SCALE = 0.001; // mm → meters (Three.js world units)
+const NDC_TO_SCREEN_SCALE = 0.5;
+const NDC_TO_SCREEN_OFFSET = 0.5;
 
 export function useScene(canvas: HTMLCanvasElement) {
   const selectedIds = ref<Set<string>>(new Set());
@@ -279,6 +281,26 @@ export function useScene(canvas: HTMLCanvasElement) {
     return null;
   }
 
+  function projectObjectToScreen(id: string) {
+    const mesh = objectMeshMap.get(id);
+    if (!mesh) return null;
+
+    const position = mesh.position.clone().project(camera);
+    // Three.js projected NDC coordinates are visible only within the [-1, 1] range.
+    if (position.z < -1 || position.z > 1) {
+      return null;
+    }
+
+    return {
+      x:
+        (position.x * NDC_TO_SCREEN_SCALE + NDC_TO_SCREEN_OFFSET) *
+        canvas.clientWidth,
+      y:
+        (-position.y * NDC_TO_SCREEN_SCALE + NDC_TO_SCREEN_OFFSET) *
+        canvas.clientHeight,
+    };
+  }
+
   // Drag-to-move support
   const isDragging = ref(false);
   let dragObjectId: string | null = null;
@@ -385,6 +407,7 @@ export function useScene(canvas: HTMLCanvasElement) {
     buildGrid,
     syncObjects,
     pickObject,
+    projectObjectToScreen,
     startDrag,
     addObject,
     updateObject,

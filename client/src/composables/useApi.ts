@@ -4,6 +4,7 @@ import type {
   HistoryEntry,
   MaterialLayer,
   MaterialTemplate,
+  ObjectRelation,
   Project,
 } from "../types";
 
@@ -107,6 +108,20 @@ export const api = {
           body: JSON.stringify(data),
         },
       ),
+  },
+
+  relations: {
+    list: (projectId: string) =>
+      request<ObjectRelation[]>(`/projects/${projectId}/relations`),
+    create: (projectId: string, data: Partial<ObjectRelation>) =>
+      request<ObjectRelation>(`/projects/${projectId}/relations`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    delete: (projectId: string, id: string) =>
+      request<{ success: boolean }>(`/projects/${projectId}/relations/${id}`, {
+        method: "DELETE",
+      }),
   },
 
   materials: {

@@ -61,12 +61,42 @@ export const ComponentGroupSchema = z.object({
   created_at: z.number(),
 });
 
+export const ObjectRelationSchema = z.object({
+  id: z.string(),
+  project_id: z.string(),
+  source_object_id: z.string(),
+  target_object_id: z.string(),
+  relation_type: z.enum(["dimension", "attachment"]),
+  source_field: z.enum([
+    "width",
+    "height",
+    "depth",
+    "position_x",
+    "position_y",
+    "position_z",
+  ]),
+  target_field: z.enum([
+    "width",
+    "height",
+    "depth",
+    "position_x",
+    "position_y",
+    "position_z",
+  ]),
+  mode: z.enum(["direct", "relative", "anchor"]),
+  source_anchor: z.enum(["start", "center", "end"]).nullable().default(null),
+  target_anchor: z.enum(["start", "center", "end"]).nullable().default(null),
+  offset_mm: z.number().default(0),
+  created_at: z.number(),
+});
+
 // ---- TypeScript Types (inferred from Zod) ----
 export type Project = z.infer<typeof ProjectSchema>;
 export type FurnitureObject = z.infer<typeof FurnitureObjectSchema>;
 export type MaterialLayer = z.infer<typeof MaterialLayerSchema>;
 export type MaterialTemplate = z.infer<typeof MaterialTemplateSchema>;
 export type ComponentGroup = z.infer<typeof ComponentGroupSchema>;
+export type ObjectRelation = z.infer<typeof ObjectRelationSchema>;
 
 export type Side = "top" | "bottom" | "left" | "right" | "front" | "back";
 export type LayerType =
@@ -120,6 +150,7 @@ export type AppPanel =
   | "materials"
   | "grid"
   | "components"
+  | "relations"
   | "object-props"
   | "history";
 
@@ -137,3 +168,51 @@ export type ContextMode =
   | "object-actions"
   | "move-controls"
   | "snap-mode";
+
+export type RelationEditorMode = "visual" | "attach";
+
+export const RELATION_DIMENSION_FIELDS = [
+  "width",
+  "height",
+  "depth",
+] as const satisfies Array<
+  keyof Pick<FurnitureObject, "width" | "height" | "depth">
+>;
+
+export const RELATION_POSITION_FIELDS = [
+  "position_x",
+  "position_y",
+  "position_z",
+] as const satisfies Array<
+  keyof Pick<FurnitureObject, "position_x" | "position_y" | "position_z">
+>;
+
+export const RELATION_FIELD_LABELS: Record<
+  | (typeof RELATION_DIMENSION_FIELDS)[number]
+  | (typeof RELATION_POSITION_FIELDS)[number],
+  string
+> = {
+  width: "Szerokość (X)",
+  height: "Wysokość (Y)",
+  depth: "Głębokość (Z)",
+  position_x: "Pozycja X",
+  position_y: "Pozycja Y",
+  position_z: "Pozycja Z",
+};
+
+export const RELATION_TYPE_LABELS = {
+  dimension: "Synchronizacja wymiarów",
+  attachment: "Magnes / pozycjonowanie",
+} as const;
+
+export const RELATION_MODE_LABELS = {
+  direct: "Bezpośrednia (1:1)",
+  relative: "Relatywna (zachowaj różnicę)",
+  anchor: "Kotwica / magnes",
+} as const;
+
+export const RELATION_ANCHOR_LABELS = {
+  start: "Początek",
+  center: "Środek",
+  end: "Koniec",
+} as const;

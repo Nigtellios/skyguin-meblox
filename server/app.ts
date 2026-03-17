@@ -13,8 +13,14 @@ import type {
   MaterialTemplatePayload,
   MaterialTemplateRow,
   MaterialTemplateWithLayers,
+  ObjectRelationPayload,
+  ObjectRelationRow,
   ProjectPayload,
   ProjectRow,
+  RelationAnchor,
+  RelationField,
+  RelationMode,
+  RelationType,
   Route,
   RouteHandler,
 } from "./types";
@@ -44,6 +50,100 @@ type ComponentSyncPayload = Partial<
     "width" | "height" | "depth" | "color" | "material_template_id"
   >
 >;
+
+const DIMENSION_FIELDS = new Set<RelationField>(["width", "height", "depth"]);
+const POSITION_FIELDS = new Set<RelationField>([
+  "position_x",
+  "position_y",
+  "position_z",
+]);
+const RELATION_TYPES = new Set<RelationType>(["dimension", "attachment"]);
+const RELATION_MODES = new Set<RelationMode>(["direct", "relative", "anchor"]);
+const RELATION_ANCHORS = new Set<RelationAnchor>(["start", "center", "end"]);
+const MAX_RELATION_PROPAGATION_DEPTH = 200;
+
+function getAxisDimension(
+  field: RelationField,
+): Extract<RelationField, "width" | "height" | "depth"> {
+  if (field === "position_x") return "width";
+  if (field === "position_y") return "height";
+  if (field === "position_z") return "depth";
+  return field;
+}
+
+function getAnchorShift(
+  object: FurnitureObjectRow,
+  field: Extract<RelationField, "position_x" | "position_y" | "position_z">,
+  anchor: RelationAnchor,
+) {
+  const dimension = object[getAxisDimension(field)];
+  if (anchor === "start") return -dimension / 2;
+  if (anchor === "end") return dimension / 2;
+  return 0;
+}
+
+function applyObjectRelation(
+  relation: ObjectRelationRow,
+  source: FurnitureObjectRow,
+  target: FurnitureObjectRow,
+) {
+  if (relation.relation_type === "dimension") {
+    if (
+      !DIMENSION_FIELDS.has(relation.source_field) ||
+      !DIMENSION_FIELDS.has(relation.target_field)
+    ) {
+      return null;
+    }
+
+    return {
+      [relation.target_field]:
+        source[relation.source_field] +
+        (relation.mode === "relative" ? relation.offset_mm : 0),
+    } as Partial<FurnitureObjectRow>;
+  }
+
+  if (
+    !POSITION_FIELDS.has(relation.source_field) ||
+    !POSITION_FIELDS.has(relation.target_field) ||
+    !relation.source_anchor ||
+    !relation.target_anchor
+  ) {
+    return null;
+  }
+
+  const sourceField = relation.source_field as Extract<
+    RelationField,
+    "position_x" | "position_y" | "position_z"
+  >;
+  const targetField = relation.target_field as Extract<
+    RelationField,
+    "position_x" | "position_y" | "position_z"
+  >;
+  const sourceAnchor =
+    source[sourceField] +
+    getAnchorShift(source, sourceField, relation.source_anchor);
+  const targetShift = getAnchorShift(
+    target,
+    targetField,
+    relation.target_anchor,
+  );
+
+  return {
+    [targetField]: sourceAnchor + relation.offset_mm - targetShift,
+  } as Partial<FurnitureObjectRow>;
+}
+
+function hasObjectChanges(
+  target: FurnitureObjectRow,
+  updates: Partial<FurnitureObjectRow>,
+) {
+  return Object.entries(updates).some(([key, value]) => {
+    if (typeof value !== "number") {
+      return false;
+    }
+    return target[key as keyof FurnitureObjectRow] !== value;
+  });
+}
 
 function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -203,6 +303,222 @@ export function createFetchHandler(database: Database) {
       ),
     );
 
+  function getProjectRelations(projectId: string) {
+    return getAll<ObjectRelationRow>(
+      database,
+      "SELECT * FROM object_relations WHERE project_id = ? ORDER BY created_at ASC",
+      projectId,
+    );
+  }
+
+  function getObjectById(id: string) {
+    return getOne<FurnitureObjectRow>(
+      database,
+      "SELECT * FROM furniture_objects WHERE id = ?",
+      id,
+    );
+  }
+
+  function syncRelations(projectId: string, changedObjectIds: string[]) {
+    const relations = getProjectRelations(projectId);
+    if (relations.length === 0 || changedObjectIds.length === 0) {
+      return;
+    }
+
+    // Group relations by source_object_id to avoid scanning all relations for every source.
+    const relationsBySource = new Map<string, ObjectRelationRow[]>();
+    for (const relation of relations) {
+      const list = relationsBySource.get(relation.source_object_id);
+      if (list) {
+        list.push(relation);
+      } else {
+        relationsBySource.set(relation.source_object_id, [relation]);
+      }
+    }
+
+    // Cache objects for the duration of this sync to avoid repeated lookups.
+    const objectCache = new Map<string, FurnitureObjectRow>();
+
+    const queue = [...new Set(changedObjectIds)];
+    const processed = new Set<string>();
+    let safety = 0;
+
+    while (queue.length > 0 && safety < MAX_RELATION_PROPAGATION_DEPTH) {
+      safety += 1;
+      const sourceId = queue.shift();
+      if (!sourceId) continue;
+
+      let source = objectCache.get(sourceId);
+      if (!source) {
+        source = getObjectById(sourceId);
+        if (!source) {
+          continue;
+        }
+        objectCache.set(sourceId, source);
+      }
+
+      const sourceRelations = relationsBySource.get(source.id);
+      if (!sourceRelations || sourceRelations.length === 0) {
+        continue;
+      }
+
+      for (const relation of sourceRelations) {
+        let target = objectCache.get(relation.target_object_id);
+        if (!target) {
+          target = getObjectById(relation.target_object_id);
+          if (!target) {
+            continue;
+          }
+          objectCache.set(relation.target_object_id, target);
+        }
+
+        const updates = applyObjectRelation(relation, source, target);
+        if (!updates || !hasObjectChanges(target, updates)) {
+          continue;
+        }
+
+        const assignments = Object.entries(updates)
+          .filter(([, value]) => typeof value === "number")
+          .map(([key]) => `${key} = ?`);
+
+        if (assignments.length === 0) {
+          continue;
+        }
+
+        const values = Object.entries(updates)
+          .filter(([, value]) => typeof value === "number")
+          .map(([, value]) => value as number);
+
+        database
+          .query(
+            `UPDATE furniture_objects SET ${assignments.join(", ")}, updated_at = ? WHERE id = ?`,
+          )
+          .run(...values, Date.now(), target.id);
+
+        const relationKey = `${relation.id}:${target.id}`;
+        if (!processed.has(relationKey)) {
+          queue.push(target.id);
+          processed.add(relationKey);
+        }
+      }
+    }
+
+    if (safety >= MAX_RELATION_PROPAGATION_DEPTH && queue.length > 0) {
+      console.warn(
+        `syncRelations reached MAX_RELATION_PROPAGATION_DEPTH (${MAX_RELATION_PROPAGATION_DEPTH}) for project ${projectId}; ` +
+          `${queue.length} object(s) remain in the propagation queue.`,
+      );
+    }
+  }
+
+  function buildRelation(
+    projectId: string,
+    body: ObjectRelationPayload,
+  ): ObjectRelationRow | null {
+    const sourceId = body.source_object_id;
+    const targetId = body.target_object_id;
+    const relationType = body.relation_type;
+    const sourceField = body.source_field;
+    const targetField = body.target_field;
+    const mode = body.mode;
+
+    if (
+      !sourceId ||
+      !targetId ||
+      sourceId === targetId ||
+      !relationType ||
+      !RELATION_TYPES.has(relationType) ||
+      !sourceField ||
+      !targetField ||
+      !mode ||
+      !RELATION_MODES.has(mode)
+    ) {
+      return null;
+    }
+
+    if (relationType === "dimension") {
+      if (
+        !DIMENSION_FIELDS.has(sourceField) ||
+        !DIMENSION_FIELDS.has(targetField) ||
+        !["direct", "relative"].includes(mode)
+      ) {
+        return null;
+      }
+    }
+
+    if (relationType === "attachment") {
+      if (
+        !POSITION_FIELDS.has(sourceField) ||
+        !POSITION_FIELDS.has(targetField) ||
+        mode !== "anchor"
+      ) {
+        return null;
+      }
+      if (
+        !body.source_anchor ||
+        !body.target_anchor ||
+        !RELATION_ANCHORS.has(body.source_anchor) ||
+        !RELATION_ANCHORS.has(body.target_anchor)
+      ) {
+        return null;
+      }
+    }
+
+    const sourceObject = getObjectById(sourceId);
+    const targetObject = getObjectById(targetId);
+    if (
+      !sourceObject ||
+      !targetObject ||
+      sourceObject.project_id !== projectId ||
+      targetObject.project_id !== projectId
+    ) {
+      return null;
+    }
+
+    const relation: ObjectRelationRow = {
+      id: crypto.randomUUID(),
+      project_id: projectId,
+      source_object_id: sourceId,
+      target_object_id: targetId,
+      relation_type: relationType,
+      source_field: sourceField,
+      target_field: targetField,
+      mode,
+      source_anchor:
+        relationType === "attachment" ? (body.source_anchor ?? null) : null,
+      target_anchor:
+        relationType === "attachment" ? (body.target_anchor ?? null) : null,
+      offset_mm:
+        typeof body.offset_mm === "number"
+          ? body.offset_mm
+          : relationType === "dimension"
+            ? mode === "relative"
+              ? targetObject[targetField] - sourceObject[sourceField]
+              : 0
+            : targetObject[targetField] +
+              getAnchorShift(
+                targetObject,
+                targetField as Extract<
+                  RelationField,
+                  "position_x" | "position_y" | "position_z"
+                >,
+                body.target_anchor as RelationAnchor,
+              ) -
+              (sourceObject[sourceField] +
+                getAnchorShift(
+                  sourceObject,
+                  sourceField as Extract<
+                    RelationField,
+                    "position_x" | "position_y" | "position_z"
+                  >,
+                  body.source_anchor as RelationAnchor,
+                )),
+      created_at: Date.now(),
+    };
+
+    return relation;
+  }
+
   const createObject = async (req: Request, params: Record<string, string>) => {
     const body = await parseObjectBody<FurnitureObjectPayload>(req);
     const id = crypto.randomUUID();
@@ -297,11 +613,14 @@ export function createFetchHandler(database: Database) {
       );
 
     return json(
-      getOne<FurnitureObjectRow>(
-        database,
-        "SELECT * FROM furniture_objects WHERE id = ?",
-        params.id,
-      ),
+      (() => {
+        syncRelations(params.projectId, [params.id]);
+        return getOne<FurnitureObjectRow>(
+          database,
+          "SELECT * FROM furniture_objects WHERE id = ?",
+          params.id,
+        );
+      })(),
     );
   };
 
@@ -534,6 +853,13 @@ export function createFetchHandler(database: Database) {
         .run(body.material_template_id, now, params.id);
     }
 
+    const changedIds = getAll<Pick<FurnitureObjectRow, "id">>(
+      database,
+      "SELECT id FROM furniture_objects WHERE component_id = ? AND is_independent = 0",
+      params.id,
+    ).map((object) => object.id);
+    syncRelations(params.projectId, changedIds);
+
     return json(
       getAll<FurnitureObjectRow>(
         database,
@@ -541,6 +867,60 @@ export function createFetchHandler(database: Database) {
         params.id,
       ),
     );
+  };
+
+  const getRelations = (_req: Request, params: Record<string, string>) =>
+    json(getProjectRelations(params.projectId));
+
+  const createRelation = async (
+    req: Request,
+    params: Record<string, string>,
+  ) => {
+    const body = await parseObjectBody<ObjectRelationPayload>(req);
+    const relation = buildRelation(params.projectId, body);
+    if (!relation) {
+      return json({ error: "Niepoprawna definicja relacji" }, 400);
+    }
+
+    database
+      .query(
+        `INSERT INTO object_relations (
+          id, project_id, source_object_id, target_object_id, relation_type,
+          source_field, target_field, mode, source_anchor, target_anchor,
+          offset_mm, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        relation.id,
+        relation.project_id,
+        relation.source_object_id,
+        relation.target_object_id,
+        relation.relation_type,
+        relation.source_field,
+        relation.target_field,
+        relation.mode,
+        relation.source_anchor,
+        relation.target_anchor,
+        relation.offset_mm,
+        relation.created_at,
+      );
+
+    syncRelations(params.projectId, [relation.source_object_id]);
+    return json(
+      getOne<ObjectRelationRow>(
+        database,
+        "SELECT * FROM object_relations WHERE id = ?",
+        relation.id,
+      ),
+      201,
+    );
+  };
+
+  const deleteRelation = (_req: Request, params: Record<string, string>) => {
+    database
+      .query("DELETE FROM object_relations WHERE id = ? AND project_id = ?")
+      .run(params.id, params.projectId);
+    return json({ success: true });
   };
 
   const getMaterialTemplates = () => {
@@ -971,6 +1351,16 @@ export function createFetchHandler(database: Database) {
     "POST",
     "/api/projects/:projectId/components/:id/sync",
     (req, params) => syncComponent(req, params),
+  );
+
+  addRoute("GET", "/api/projects/:projectId/relations", (req, params) =>
+    getRelations(req, params),
+  );
+  addRoute("POST", "/api/projects/:projectId/relations", (req, params) =>
+    createRelation(req, params),
+  );
+  addRoute("DELETE", "/api/projects/:projectId/relations/:id", (req, params) =>
+    deleteRelation(req, params),
   );
 
   addRoute("GET", "/api/projects/:projectId/history", (req, params) =>

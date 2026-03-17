@@ -75,6 +75,24 @@ export function initializeDatabase(database: Database) {
       FOREIGN KEY (component_id) REFERENCES component_groups(id) ON DELETE SET NULL
     );
 
+    CREATE TABLE IF NOT EXISTS object_relations (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      source_object_id TEXT NOT NULL,
+      target_object_id TEXT NOT NULL,
+      relation_type TEXT NOT NULL,
+      source_field TEXT NOT NULL,
+      target_field TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      source_anchor TEXT,
+      target_anchor TEXT,
+      offset_mm REAL NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (source_object_id) REFERENCES furniture_objects(id) ON DELETE CASCADE,
+      FOREIGN KEY (target_object_id) REFERENCES furniture_objects(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS project_history (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
