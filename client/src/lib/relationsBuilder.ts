@@ -79,10 +79,50 @@ export function getFieldAnchorPoint(
   };
 }
 
+function getBuilderControlPoints(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+) {
+  const dx = end.x - start.x;
+  const controlOffset = Math.max(80, Math.abs(dx) / 2);
+  // For backward connections (source right of target), flip control point directions
+  // to avoid looping bezier curves
+  return {
+    cp1: {
+      x: dx >= 0 ? start.x + controlOffset : start.x - controlOffset,
+      y: start.y,
+    },
+    cp2: {
+      x: dx >= 0 ? end.x - controlOffset : end.x + controlOffset,
+      y: end.y,
+    },
+  };
+}
+
 export function createBuilderEdgePath(
   start: { x: number; y: number },
   end: { x: number; y: number },
 ) {
-  const controlOffset = Math.max(80, Math.abs(end.x - start.x) / 2);
-  return `M ${start.x} ${start.y} C ${start.x + controlOffset} ${start.y}, ${end.x - controlOffset} ${end.y}, ${end.x} ${end.y}`;
+  const { cp1, cp2 } = getBuilderControlPoints(start, end);
+  return `M ${start.x} ${start.y} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${end.x} ${end.y}`;
+}
+
+export function createBuilderEdgePaths(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+): { firstHalf: string; secondHalf: string } {
+  const { cp1, cp2 } = getBuilderControlPoints(start, end);
+
+  // De Casteljau split at t=0.5 – places the arrowhead at the visual midpoint
+  const q0 = { x: (start.x + cp1.x) / 2, y: (start.y + cp1.y) / 2 };
+  const q1 = { x: (cp1.x + cp2.x) / 2, y: (cp1.y + cp2.y) / 2 };
+  const q2 = { x: (cp2.x + end.x) / 2, y: (cp2.y + end.y) / 2 };
+  const r0 = { x: (q0.x + q1.x) / 2, y: (q0.y + q1.y) / 2 };
+  const r1 = { x: (q1.x + q2.x) / 2, y: (q1.y + q2.y) / 2 };
+  const mid = { x: (r0.x + r1.x) / 2, y: (r0.y + r1.y) / 2 };
+
+  return {
+    firstHalf: `M ${start.x} ${start.y} C ${q0.x} ${q0.y}, ${r0.x} ${r0.y}, ${mid.x} ${mid.y}`,
+    secondHalf: `M ${mid.x} ${mid.y} C ${r1.x} ${r1.y}, ${q2.x} ${q2.y}, ${end.x} ${end.y}`,
+  };
 }

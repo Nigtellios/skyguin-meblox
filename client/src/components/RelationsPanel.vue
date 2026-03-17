@@ -75,7 +75,7 @@
                       refY="5"
                       markerWidth="8"
                       markerHeight="8"
-                      orient="auto-start-reverse"
+                      orient="auto"
                     >
                       <path d="M 0 0 L 10 5 L 0 10 z" fill="#60a5fa" />
                     </marker>
@@ -83,12 +83,13 @@
 
                   <g v-for="edge in builderEdges" :key="edge.id">
                     <path
-                      :d="edge.path"
-                      fill="none"
-                      stroke="#60a5fa"
-                      stroke-width="2.5"
-                      :stroke-dasharray="edge.type === 'attachment' ? '8 5' : '0'"
+                      :d="edge.paths.firstHalf"
+                      v-bind="edgePathProps(edge.type)"
                       marker-end="url(#builder-arrow)"
+                    />
+                    <path
+                      :d="edge.paths.secondHalf"
+                      v-bind="edgePathProps(edge.type)"
                     />
                     <g>
                       <rect
@@ -362,7 +363,7 @@ import {
   type BuilderField,
   type BuilderNodeLayout,
   canConnectFields,
-  createBuilderEdgePath,
+  createBuilderEdgePaths,
   createBuilderLayout,
   estimateRelationLabelWidth,
   getFieldAnchorPoint,
@@ -476,8 +477,17 @@ const builderEdges = computed(() =>
         return null;
       }
 
-      const start = getFieldAnchorPoint(sourceNode, sourceFieldIndex, "right");
-      const end = getFieldAnchorPoint(targetNode, targetFieldIndex, "left");
+      const sourceIsLeft = sourceNode.x <= targetNode.x;
+      const start = getFieldAnchorPoint(
+        sourceNode,
+        sourceFieldIndex,
+        sourceIsLeft ? "right" : "left",
+      );
+      const end = getFieldAnchorPoint(
+        targetNode,
+        targetFieldIndex,
+        sourceIsLeft ? "left" : "right",
+      );
       const labelText =
         relation.relation_type === "dimension"
           ? `${RELATION_FIELD_LABELS[relation.source_field]} → ${RELATION_FIELD_LABELS[relation.target_field]}`
@@ -485,7 +495,7 @@ const builderEdges = computed(() =>
 
       return {
         id: relation.id,
-        path: createBuilderEdgePath(start, end),
+        paths: createBuilderEdgePaths(start, end),
         type: relation.relation_type,
         label: {
           x: (start.x + end.x) / 2,
@@ -534,6 +544,15 @@ function getFieldKind(field: BuilderField) {
 
 function formatFieldValue(object: FurnitureObject, field: BuilderField) {
   return `${Math.round(object[field])} mm`;
+}
+
+function edgePathProps(type: string) {
+  return {
+    fill: "none",
+    stroke: "#60a5fa",
+    "stroke-width": 2.5,
+    "stroke-dasharray": type === "attachment" ? "8 5" : "0",
+  };
 }
 
 function canDragField(field: BuilderField) {
