@@ -5,6 +5,8 @@
       class="block h-full w-full"
       :class="isCrosshairMode ? 'cursor-crosshair' : ''"
       @mousedown="onMouseDown"
+      @mousemove="onMouseMove"
+      @mouseleave="onMouseLeave"
       @click="onClick"
       @contextmenu.prevent="onContextMenu"
     />
@@ -220,6 +222,15 @@ watch(
 );
 
 watch(
+  () => store.state.sceneMode,
+  (newMode) => {
+    if (newMode !== "snap") {
+      scene?.clearHoverHighlight();
+    }
+  },
+);
+
+watch(
   () => [
     store.state.activePanel,
     store.state.relationEditorMode,
@@ -372,6 +383,23 @@ function onMouseDown(e: MouseEvent) {
       getSnapForDrag,
     );
   }
+}
+
+function onMouseMove(e: MouseEvent) {
+  if (!scene) return;
+  if (store.state.sceneMode !== "snap") return;
+
+  const hit = scene.pickObjectWithFace(e);
+  if (hit && !store.state.selectedObjectIds.includes(hit.id)) {
+    scene.setHoverHighlight(hit.id, hit.faceNormal);
+  } else {
+    scene.clearHoverHighlight();
+  }
+}
+
+function onMouseLeave() {
+  if (!scene) return;
+  scene.clearHoverHighlight();
 }
 
 async function onClick(e: MouseEvent) {

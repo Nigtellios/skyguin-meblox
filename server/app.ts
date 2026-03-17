@@ -217,7 +217,7 @@ function createRouter() {
   return { addRoute, routes };
 }
 
-export function createFetchHandler(database: Database) {
+export function createFetchHandler(database: Database, debugMode = false) {
   const { addRoute, routes } = createRouter();
 
   const getProjects = () =>
@@ -1255,25 +1255,27 @@ export function createFetchHandler(database: Database) {
 
     const now = Date.now();
 
-    // Delete all current objects for this project and restore from snapshot.
-    // This replaces all objects atomically to match the snapshotted state,
-    // which is simpler and more reliable than a granular diff/patch approach.
-    database
-      .query("DELETE FROM furniture_objects WHERE project_id = ?")
-      .run(params.projectId);
-
-    // Restore objects from snapshot
-    for (const obj of objects) {
+    // Wrap all mutation queries in a transaction so the revert is atomic.
+    // Without a transaction, a partial failure would leave the project in an
+    // inconsistent state. The transaction also significantly improves
+    // performance for large snapshots by batching all writes in one commit.
+    const executeRevert = database.transaction(() => {
+      // Delete all current objects for this project and restore from snapshot.
       database
-        .query(
-          `INSERT INTO furniture_objects (
-            id, project_id, name, width, height, depth,
-            position_x, position_y, position_z, rotation_y,
-            color, material_template_id, component_id, is_independent,
-            created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
+        .query("DELETE FROM furniture_objects WHERE project_id = ?")
+        .run(params.projectId);
+
+      // Restore objects from snapshot
+      const insertStmt = database.prepare(
+        `INSERT INTO furniture_objects (
+          id, project_id, name, width, height, depth,
+          position_x, position_y, position_z, rotation_y,
+          color, material_template_id, component_id, is_independent,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      for (const obj of objects) {
+        insertStmt.run(
           obj.id,
           params.projectId,
           obj.name,
@@ -1291,14 +1293,17 @@ export function createFetchHandler(database: Database) {
           obj.created_at,
           now,
         );
-    }
+      }
 
-    // Delete history entries after the target entry
-    database
-      .query(
-        "DELETE FROM project_history WHERE project_id = ? AND created_at > ?",
-      )
-      .run(params.projectId, entry.created_at);
+      // Delete history entries after the target entry
+      database
+        .query(
+          "DELETE FROM project_history WHERE project_id = ? AND created_at > ?",
+        )
+        .run(params.projectId, entry.created_at);
+    });
+
+    executeRevert();
 
     return json({
       success: true,
@@ -1406,6 +1411,11 @@ export function createFetchHandler(database: Database) {
   return async function fetch(req: Request) {
     const url = new URL(req.url);
     const pathname = url.pathname;
+    const startTime = debugMode ? Date.now() : 0;
+
+    if (debugMode) {
+      console.log(`[DEBUG] → ${req.method} ${pathname}`);
+    }
 
     if (req.method === "OPTIONS") {
       return cors(new Response(null, { status: 204 }));
@@ -1431,13 +1441,27 @@ export function createFetchHandler(database: Database) {
         });
 
         try {
-          return cors(await route.handler(req, params));
+          const response = cors(await route.handler(req, params));
+          if (debugMode) {
+            console.log(
+              `[DEBUG] ← ${req.method} ${pathname} ${response.status} (${Date.now() - startTime}ms)`,
+            );
+          }
+          return response;
         } catch (error) {
           console.error("Route error:", error);
+          if (debugMode) {
+            console.error(
+              `[DEBUG] ✗ ${req.method} ${pathname} 500 (${Date.now() - startTime}ms)`,
+            );
+          }
           return cors(json({ error: "Internal server error" }, 500));
         }
       }
 
+      if (debugMode) {
+        console.warn(`[DEBUG] ← ${req.method} ${pathname} 404 (not found)`);
+      }
       return cors(json({ error: "Not found" }, 404));
     }
 
@@ -1467,9 +1491,13 @@ export function createFetchHandler(database: Database) {
   };
 }
 
-export function startServer(database: Database, port = 3001) {
+export function startServer(
+  database: Database,
+  port = 3001,
+  debugMode = false,
+) {
   return Bun.serve({
     port,
-    fetch: createFetchHandler(database),
+    fetch: createFetchHandler(database, debugMode),
   });
 }

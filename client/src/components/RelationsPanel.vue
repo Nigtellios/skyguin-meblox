@@ -2,8 +2,8 @@
   <Teleport to="body">
     <div
       v-if="store.state.activePanel === 'relations'"
-      class="fixed inset-0 z-50 backdrop-blur-sm"
-      :class="isAttachEditor ? 'pointer-events-none bg-slate-950/35' : 'bg-slate-950/85'"
+      class="fixed inset-0 z-50"
+      :class="isAttachEditor ? 'pointer-events-none bg-slate-950/35' : 'bg-slate-950/85 backdrop-blur-sm'"
     >
       <div
         class="absolute inset-4 flex flex-col overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-950 shadow-2xl shadow-black/50"
