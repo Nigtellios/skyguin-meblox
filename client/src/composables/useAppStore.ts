@@ -311,7 +311,9 @@ export const useAppStore = defineStore("app", () => {
     }
 
     if (state.selectedObjectIds.length > 0) {
-      state.activePanel = "object-props";
+      if (!multiSelect) {
+        state.activePanel = "object-props";
+      }
       if (state.contextMode === "none") {
         state.contextMode = "object-actions";
       }
