@@ -325,6 +325,20 @@ export function createFetchHandler(database: Database) {
       return;
     }
 
+    // Group relations by source_object_id to avoid scanning all relations for every source.
+    const relationsBySource = new Map<string, ObjectRelationRow[]>();
+    for (const relation of relations) {
+      const list = relationsBySource.get(relation.source_object_id);
+      if (list) {
+        list.push(relation);
+      } else {
+        relationsBySource.set(relation.source_object_id, [relation]);
+      }
+    }
+
+    // Cache objects for the duration of this sync to avoid repeated lookups.
+    const objectCache = new Map<string, FurnitureObjectRow>();
+
     const queue = [...new Set(changedObjectIds)];
     const processed = new Set<string>();
     let safety = 0;
@@ -334,17 +348,28 @@ export function createFetchHandler(database: Database) {
       const sourceId = queue.shift();
       if (!sourceId) continue;
 
-      const source = getObjectById(sourceId);
-      if (!source) continue;
-
-      for (const relation of relations) {
-        if (relation.source_object_id !== source.id) {
+      let source = objectCache.get(sourceId);
+      if (!source) {
+        source = getObjectById(sourceId);
+        if (!source) {
           continue;
         }
+        objectCache.set(sourceId, source);
+      }
 
-        const target = getObjectById(relation.target_object_id);
+      const sourceRelations = relationsBySource.get(source.id);
+      if (!sourceRelations || sourceRelations.length === 0) {
+        continue;
+      }
+
+      for (const relation of sourceRelations) {
+        let target = objectCache.get(relation.target_object_id);
         if (!target) {
-          continue;
+          target = getObjectById(relation.target_object_id);
+          if (!target) {
+            continue;
+          }
+          objectCache.set(relation.target_object_id, target);
         }
 
         const updates = applyObjectRelation(relation, source, target);
