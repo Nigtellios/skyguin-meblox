@@ -218,6 +218,11 @@ export function useScene(canvas: HTMLCanvasElement) {
   }
 
   function removeObject(id: string) {
+    // Clear hover highlight before removing the mesh so the children can be
+    // properly disposed while the mesh is still accessible via objectMeshMap.
+    if (id === hoverObjectId) {
+      clearHoverHighlight();
+    }
     const mesh = objectMeshMap.get(id);
     if (!mesh) return;
     scene.remove(mesh);
@@ -571,6 +576,7 @@ export function useScene(canvas: HTMLCanvasElement) {
     resizeObserver.disconnect();
     controls.dispose();
     renderer.dispose();
+    clearHoverHighlight();
     for (const [id] of objectMeshMap) removeObject(id);
     objectMeshMap.clear();
   }
