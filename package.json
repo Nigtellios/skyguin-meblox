@@ -9,6 +9,7 @@
     "build": "bun run typecheck && vite build --config client/vite.config.ts",
     "preview": "vite preview --config client/vite.config.ts",
     "start": "bun run server/index.ts",
+    "start-debug": "LOG_LEVEL=debug bun run server/index.ts",
     "typecheck": "bun run typecheck:ts && bun run typecheck:vue",
     "typecheck:ts": "bunx tsc --noEmit --project tsconfig.json",
     "typecheck:vue": "vue-tsc --project tsconfig.json --noEmit",

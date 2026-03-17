@@ -7,6 +7,7 @@ import type { FurnitureObject, GridConfig } from "../types";
 const SCALE = 0.001; // mm → meters (Three.js world units)
 const NDC_TO_SCREEN_SCALE = 0.5;
 const NDC_TO_SCREEN_OFFSET = 0.5;
+const FACE_HIGHLIGHT_OFFSET = 0.001; // small offset to avoid z-fighting with the face mesh
 
 export function useScene(canvas: HTMLCanvasElement) {
   const selectedIds = ref<Set<string>>(new Set());
@@ -217,6 +218,11 @@ export function useScene(canvas: HTMLCanvasElement) {
   }
 
   function removeObject(id: string) {
+    // Clear hover highlight before removing the mesh so the children can be
+    // properly disposed while the mesh is still accessible via objectMeshMap.
+    if (id === hoverObjectId) {
+      clearHoverHighlight();
+    }
     const mesh = objectMeshMap.get(id);
     if (!mesh) return;
     scene.remove(mesh);
@@ -279,6 +285,160 @@ export function useScene(canvas: HTMLCanvasElement) {
       return (hit.userData.id as string) || null;
     }
     return null;
+  }
+
+  function pickObjectWithFace(
+    event: MouseEvent,
+  ): { id: string; faceNormal: THREE.Vector3 } | null {
+    const rect = canvas.getBoundingClientRect();
+    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(pointer, camera);
+    const meshes = Array.from(objectMeshMap.values());
+    const intersects = raycaster.intersectObjects(meshes, false);
+
+    if (intersects.length > 0) {
+      const hit = intersects[0];
+      const id = (hit.object as THREE.Mesh).userData.id as string;
+      if (id && hit.face) {
+        // face.normal is in local mesh space; keep it local since highlight meshes are also children
+        const faceNormal = hit.face.normal.clone();
+        return { id, faceNormal };
+      }
+    }
+    return null;
+  }
+
+  // ---- Hover / snap highlight ----
+  let hoverObjectId: string | null = null;
+
+  function clearHoverHighlight() {
+    if (!hoverObjectId) return;
+    const mesh = objectMeshMap.get(hoverObjectId);
+    if (mesh) {
+      const hoverEdge = mesh.children.find((c) => c.name === "__hover_edge__");
+      if (hoverEdge) {
+        mesh.remove(hoverEdge);
+        (hoverEdge as THREE.LineSegments).geometry.dispose();
+        (
+          (hoverEdge as THREE.LineSegments).material as THREE.Material
+        ).dispose();
+      }
+      const hoverFace = mesh.children.find((c) => c.name === "__hover_face__");
+      if (hoverFace) {
+        mesh.remove(hoverFace);
+        (hoverFace as THREE.Mesh).geometry.dispose();
+        ((hoverFace as THREE.Mesh).material as THREE.Material).dispose();
+      }
+    }
+    hoverObjectId = null;
+  }
+
+  function setHoverHighlight(
+    objectId: string | null,
+    faceNormal?: THREE.Vector3,
+  ) {
+    if (objectId === hoverObjectId) {
+      // Update face highlight if same object but different face
+      if (objectId && faceNormal) {
+        const mesh = objectMeshMap.get(objectId);
+        if (mesh) {
+          const hoverFace = mesh.children.find(
+            (c) => c.name === "__hover_face__",
+          );
+          if (hoverFace) {
+            mesh.remove(hoverFace);
+            (hoverFace as THREE.Mesh).geometry.dispose();
+            ((hoverFace as THREE.Mesh).material as THREE.Material).dispose();
+          }
+          const faceMesh = buildFaceHighlight(mesh, faceNormal);
+          if (faceMesh) mesh.add(faceMesh);
+        }
+      }
+      return;
+    }
+
+    clearHoverHighlight();
+
+    if (!objectId) return;
+
+    const mesh = objectMeshMap.get(objectId);
+    if (!mesh) return;
+
+    hoverObjectId = objectId;
+
+    // Add edge wireframe for the whole object
+    const edges = new THREE.EdgesGeometry(mesh.geometry);
+    const lineMat = new THREE.LineBasicMaterial({ color: 0xffaa00 });
+    const wireframe = new THREE.LineSegments(edges, lineMat);
+    wireframe.name = "__hover_edge__";
+    mesh.add(wireframe);
+
+    // Add face highlight if normal provided
+    if (faceNormal) {
+      const faceMesh = buildFaceHighlight(mesh, faceNormal);
+      if (faceMesh) mesh.add(faceMesh);
+    }
+  }
+
+  function buildFaceHighlight(
+    mesh: THREE.Mesh,
+    faceNormal: THREE.Vector3,
+  ): THREE.Mesh | null {
+    const geom = mesh.geometry as THREE.BoxGeometry;
+    const { width: w, height: h, depth: d } = geom.parameters;
+    const OFFSET = FACE_HIGHLIGHT_OFFSET;
+
+    const nx = Math.round(faceNormal.x);
+    const ny = Math.round(faceNormal.y);
+    const nz = Math.round(faceNormal.z);
+
+    let planeGeom: THREE.PlaneGeometry;
+    const position = new THREE.Vector3();
+    const euler = new THREE.Euler();
+
+    if (nx === 1) {
+      planeGeom = new THREE.PlaneGeometry(d, h);
+      position.set(w / 2 + OFFSET, 0, 0);
+      euler.set(0, Math.PI / 2, 0);
+    } else if (nx === -1) {
+      planeGeom = new THREE.PlaneGeometry(d, h);
+      position.set(-(w / 2) - OFFSET, 0, 0);
+      euler.set(0, -Math.PI / 2, 0);
+    } else if (ny === 1) {
+      planeGeom = new THREE.PlaneGeometry(w, d);
+      position.set(0, h / 2 + OFFSET, 0);
+      euler.set(-Math.PI / 2, 0, 0);
+    } else if (ny === -1) {
+      planeGeom = new THREE.PlaneGeometry(w, d);
+      position.set(0, -(h / 2) - OFFSET, 0);
+      euler.set(Math.PI / 2, 0, 0);
+    } else if (nz === 1) {
+      planeGeom = new THREE.PlaneGeometry(w, h);
+      position.set(0, 0, d / 2 + OFFSET);
+      euler.set(0, 0, 0);
+    } else if (nz === -1) {
+      planeGeom = new THREE.PlaneGeometry(w, h);
+      position.set(0, 0, -(d / 2) - OFFSET);
+      euler.set(0, Math.PI, 0);
+    } else {
+      return null;
+    }
+
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xff8800,
+      transparent: true,
+      opacity: 0.4,
+      side: THREE.DoubleSide,
+      depthTest: false,
+    });
+
+    const faceMesh = new THREE.Mesh(planeGeom, mat);
+    faceMesh.position.copy(position);
+    faceMesh.rotation.copy(euler);
+    faceMesh.name = "__hover_face__";
+    return faceMesh;
   }
 
   function projectObjectToScreen(id: string) {
@@ -416,6 +576,7 @@ export function useScene(canvas: HTMLCanvasElement) {
     resizeObserver.disconnect();
     controls.dispose();
     renderer.dispose();
+    clearHoverHighlight();
     for (const [id] of objectMeshMap) removeObject(id);
     objectMeshMap.clear();
   }
@@ -433,6 +594,9 @@ export function useScene(canvas: HTMLCanvasElement) {
     buildGrid,
     syncObjects,
     pickObject,
+    pickObjectWithFace,
+    setHoverHighlight,
+    clearHoverHighlight,
     projectObjectToScreen,
     startDrag,
     addObject,
