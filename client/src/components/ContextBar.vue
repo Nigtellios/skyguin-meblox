@@ -40,6 +40,19 @@
         </svg>
       </button>
 
+      <!-- Rotate -->
+      <button
+        v-if="selectedCount === 1"
+        class="btn-icon-bar"
+        :class="{ 'btn-icon-bar-active': sceneMode === 'rotate' }"
+        title="Obróć (R)"
+        @click="$emit('set-scene-mode', 'rotate')"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/>
+        </svg>
+      </button>
+
       <!-- Materials -->
       <button
         class="btn-icon-bar"
@@ -155,80 +168,67 @@
 
           <div class="w-px h-4 bg-slate-700/60 mx-1" />
 
-          <!-- Step size presets -->
+          <!-- Step size -->
           <span class="text-xs text-slate-400 mr-1">Krok:</span>
           <button
-            v-for="step in PRESET_STEPS"
+            v-for="step in steps"
             :key="step"
             class="px-2 py-1 rounded-lg text-xs transition-colors"
             :class="
-              activeStep === step && customStepInput === ''
+              activeStep === step
                 ? 'bg-slate-500 text-white'
                 : 'bg-slate-700/60 text-slate-400 hover:bg-slate-600'
             "
-            @click="setPresetStep(step)"
+            @click="activeStep = step"
           >
             {{ step }}mm
           </button>
-
-          <!-- Custom step input -->
-          <input
-            v-model="customStepInput"
-            type="number"
-            min="0.001"
-            step="0.001"
-            placeholder="własny"
-            aria-label="Własny krok przesunięcia w mm"
-            class="w-20 px-2 py-1 rounded-lg text-xs bg-slate-700/60 text-slate-200 border border-slate-600 focus:border-blue-500 focus:outline-none"
-            @change="onCustomStepChange"
-          />
-          <span class="text-xs text-slate-400">mm</span>
         </div>
 
         <!-- Direction controls -->
         <div class="flex items-center gap-3">
-          <!-- Compass arrows (bigger) -->
+          <!-- Compass arrows -->
           <div class="grid grid-cols-3 gap-1">
             <div />
             <button
-              class="btn-icon-bar btn-move-arrow"
-              :title="upLabel + ' (↑)'"
+              class="btn-icon-bar"
+              :title="upLabel"
               @click="onMoveDir('up')"
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M7 14l5-5 5 5H7z"/>
               </svg>
             </button>
             <div />
             <button
-              class="btn-icon-bar btn-move-arrow"
-              :title="leftLabel + ' (←)'"
+              class="btn-icon-bar"
+              :title="leftLabel"
               @click="onMoveDir('left')"
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M10 17l-5-5 5-5v10z"/>
               </svg>
             </button>
             <!-- Center indicator -->
-            <div class="w-10 h-10 flex items-center justify-center">
+            <div class="w-8 h-8 flex items-center justify-center">
               <div class="w-2 h-2 rounded-full bg-slate-600" />
             </div>
             <button
-              class="btn-icon-bar btn-move-arrow"
-              :title="rightLabel + ' (→)'"
+              class="btn-icon-bar"
+              :title="rightLabel"
               @click="onMoveDir('right')"
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M10 7v10l5-5-5-5z"/>
               </svg>
             </button>
             <div />
             <button
-              class="btn-icon-bar btn-move-arrow"
-              :title="downLabel + ' (↓)'"
+              class="btn-icon-bar"
+              :title="downLabel"
               @click="onMoveDir('down')"
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M7 10l5 5 5-5H7z"/>
               </svg>
             </button>
@@ -240,31 +240,24 @@
           <!-- Rotate buttons -->
           <div class="flex flex-col gap-1">
             <button
-              class="btn-icon-bar btn-move-arrow"
-              title="Obróć w lewo CCW (R)"
+              class="btn-icon-bar"
+              title="Obróć w lewo (CCW)"
               @click="onRotate(-1)"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
               </svg>
             </button>
             <button
-              class="btn-icon-bar btn-move-arrow"
-              title="Obróć w prawo CW (R+Shift)"
+              class="btn-icon-bar"
+              title="Obróć w prawo (CW)"
               @click="onRotate(1)"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17 7H7v3L3 6l4-4v3h12v6h-2V7zM7 17h10v-3l4 4-4 4v-3H5v-6h2v4z"/>
               </svg>
             </button>
           </div>
-        </div>
-
-        <!-- Keyboard hints -->
-        <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-slate-500 text-xs">
-          <span>↑↓←→ przesuń</span>
-          <span>R obróć</span>
-          <span>X/Y/Z oś</span>
         </div>
       </div>
 
@@ -276,7 +269,7 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
           <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
         </svg>
-        Wróć (Esc)
+        Wróć
       </button>
     </div>
 
@@ -300,7 +293,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import type { ContextMode, FurnitureObject, SceneMode } from "../types";
 
 const props = defineProps<{
@@ -327,29 +320,10 @@ const emit = defineEmits<{
 
 const axes = ["X", "Y", "Z"] as const;
 type Axis = (typeof axes)[number];
-
-const DEFAULT_AXIS: Axis = "X";
-const DEFAULT_STEP = 10;
-
-const activeAxis = ref<Axis>(DEFAULT_AXIS);
-
-const PRESET_STEPS = [0.1, 1, 10, 100];
-const activeStep = ref<number>(DEFAULT_STEP);
-const customStepInput = ref<string>("");
-
-function setPresetStep(s: number) {
-  activeStep.value = s;
-  customStepInput.value = "";
-}
-
-function onCustomStepChange() {
-  const val = parseFloat(customStepInput.value);
-  if (!Number.isNaN(val) && val > 0) {
-    activeStep.value = val;
-  } else {
-    customStepInput.value = "";
-  }
-}
+const activeAxis = ref<Axis>("X");
+const steps = [1, 10, 100] as const;
+type Step = (typeof steps)[number];
+const activeStep = ref<Step>(10);
 
 const ROTATE_STEP_DEG = 15;
 
@@ -407,82 +381,6 @@ function onMoveClick() {
   emit("set-scene-mode", "move");
   emit("enter-move-controls");
 }
-
-// ---- Keyboard shortcuts for move-controls mode ----
-function handleMoveControlsKey(e: KeyboardEvent) {
-  const activeTag = document.activeElement?.tagName;
-  if (activeTag === "INPUT" || activeTag === "TEXTAREA") return;
-
-  switch (e.key) {
-    case "ArrowUp":
-      e.preventDefault();
-      onMoveDir("up");
-      break;
-    case "ArrowDown":
-      e.preventDefault();
-      onMoveDir("down");
-      break;
-    case "ArrowLeft":
-      e.preventDefault();
-      onMoveDir("left");
-      break;
-    case "ArrowRight":
-      e.preventDefault();
-      onMoveDir("right");
-      break;
-    case "r":
-    case "R":
-      e.preventDefault();
-      onRotate(e.shiftKey ? 1 : -1);
-      break;
-    case "x":
-    case "X":
-      e.preventDefault();
-      activeAxis.value = "X";
-      break;
-    case "y":
-    case "Y":
-      e.preventDefault();
-      activeAxis.value = "Y";
-      break;
-    case "z":
-    case "Z":
-      e.preventDefault();
-      activeAxis.value = "Z";
-      break;
-    case "Escape":
-      e.preventDefault();
-      emit("exit-move-controls");
-      break;
-  }
-}
-
-let moveControlsKeyHandler: ((e: KeyboardEvent) => void) | null = null;
-
-watch(
-  () => props.contextMode,
-  (mode) => {
-    if (moveControlsKeyHandler) {
-      document.removeEventListener("keydown", moveControlsKeyHandler);
-      moveControlsKeyHandler = null;
-    }
-    if (mode === "move-controls") {
-      moveControlsKeyHandler = handleMoveControlsKey;
-      document.addEventListener("keydown", moveControlsKeyHandler);
-    } else {
-      // Reset axis and step when leaving move-controls
-      activeAxis.value = DEFAULT_AXIS;
-      activeStep.value = DEFAULT_STEP;
-      customStepInput.value = "";
-    }
-  },
-);
-
-onUnmounted(() => {
-  if (moveControlsKeyHandler) {
-    document.removeEventListener("keydown", moveControlsKeyHandler);
-  }
-});
 </script>
 
 <style scoped>
@@ -503,10 +401,5 @@ onUnmounted(() => {
 .btn-icon-bar-active {
   background-color: rgb(37 99 235 / 0.3);
   color: rgb(96 165 250);
-}
-.btn-move-arrow {
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 0.75rem;
 }
 </style>

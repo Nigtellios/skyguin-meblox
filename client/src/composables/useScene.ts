@@ -310,12 +310,7 @@ export function useScene(canvas: HTMLCanvasElement) {
   function startDrag(
     event: MouseEvent,
     objectId: string,
-    onDragEnd: (id: string, x: number, z: number) => void,
-    getSnapPosition?: (
-      id: string,
-      rawX: number,
-      rawZ: number,
-    ) => { x: number; z: number } | null,
+    onPositionChange: (id: string, x: number, z: number) => void,
   ) {
     dragObjectId = objectId;
     isDragging.value = true;
@@ -338,9 +333,6 @@ export function useScene(canvas: HTMLCanvasElement) {
     raycaster.ray.intersectPlane(dragPlane, planePoint);
     dragOffset.copy(mesh.position).sub(planePoint);
 
-    let lastX = mesh.position.x / SCALE;
-    let lastZ = mesh.position.z / SCALE;
-
     const handleMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -350,35 +342,17 @@ export function useScene(canvas: HTMLCanvasElement) {
       raycaster.ray.intersectPlane(dragPlane, hitPoint);
       if (hitPoint && dragObjectId) {
         const newPos = hitPoint.add(dragOffset);
-        const rawX = newPos.x / SCALE;
-        const rawZ = newPos.z / SCALE;
-
-        let finalX = rawX;
-        let finalZ = rawZ;
-
-        if (getSnapPosition) {
-          const snapped = getSnapPosition(dragObjectId, rawX, rawZ);
-          if (snapped) {
-            finalX = snapped.x;
-            finalZ = snapped.z;
-          }
+        const mesh = objectMeshMap.get(dragObjectId);
+        if (mesh) {
+          mesh.position.x = newPos.x;
+          mesh.position.z = newPos.z;
+          onPositionChange(dragObjectId, newPos.x / SCALE, newPos.z / SCALE);
         }
-
-        const dragMesh = objectMeshMap.get(dragObjectId);
-        if (dragMesh) {
-          dragMesh.position.x = finalX * SCALE;
-          dragMesh.position.z = finalZ * SCALE;
-        }
-        lastX = finalX;
-        lastZ = finalZ;
       }
     };
 
     const handleUp = () => {
       isDragging.value = false;
-      if (dragObjectId) {
-        onDragEnd(dragObjectId, lastX, lastZ);
-      }
       dragObjectId = null;
       controls.enabled = true;
       canvas.removeEventListener("mousemove", handleMove);

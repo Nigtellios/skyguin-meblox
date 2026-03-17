@@ -121,7 +121,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, watch } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
 import ComponentsPanel from "./components/ComponentsPanel.vue";
 import ContextBar from "./components/ContextBar.vue";
 import GridSettingsPanel from "./components/GridSettingsPanel.vue";
@@ -148,27 +148,13 @@ onUnmounted(() => {
   document.removeEventListener("keydown", onKeyDown);
 });
 
-// Issue 2: Auto-enter move-controls when selecting an object while in move mode
-watch(
-  () => store.state.selectedObjectIds,
-  (ids) => {
-    if (
-      ids.length > 0 &&
-      store.state.sceneMode === "move" &&
-      store.state.contextMode !== "move-controls"
-    ) {
-      store.setContextMode("move-controls");
-    }
-  },
-);
-
 // ---- Icons ----
 const tools: Array<{ mode: SceneMode; label: string; icon: string }> = [
   {
     mode: "select",
     label: "Zaznacz (S)",
-    // Standard mouse cursor arrow (pointing top-left)
-    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M4 2l1.5 15L9 13.5l3 6 1.5-.75-3-6 4.5-1.5z"/></svg>`,
+    // Cursor / pointer icon
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M13.64 21.97C13.14 22.21 12.54 22 12.31 21.5L10.13 16.76L7.62 19.78C7.45 19.98 7.21 20.09 6.96 20.09C6.72 20.09 6.48 19.98 6.31 19.78C6.13 19.59 6.04 19.35 6.04 19.09V3.04C6.04 2.49 6.48 2.05 7.04 2.05C7.23 2.05 7.41 2.11 7.58 2.22L19.6 9.72C20.05 10 20.15 10.59 19.85 11.04C19.75 11.21 19.6 11.34 19.42 11.41L15.76 12.81L17.93 17.55C18.16 18.06 17.95 18.65 17.45 18.88L13.64 21.97Z"/></svg>`,
   },
   {
     mode: "move",
@@ -187,9 +173,9 @@ const tools: Array<{ mode: SceneMode; label: string; icon: string }> = [
 const panelToggles: Array<{ id: AppPanel; label: string; icon: string }> = [
   {
     id: "objects",
-    label: "Elementy projektu",
-    // 3D cube / box icon - clearly represents physical objects/furniture
-    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A1 1 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L5.04 8 12 11.85 18.96 8 12 4.15zM5 9.58v5.84l6.5 3.66V13.24L5 9.58zm8.5 9.5 6.5-3.66V9.58l-6.5 3.66v5.84z"/></svg>`,
+    label: "Elementy",
+    // Box / package icon
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zm-8.5 11.77L6.04 12H9v-2h6v2h2.96l-6 5z"/></svg>`,
   },
   {
     id: "materials",
@@ -200,14 +186,13 @@ const panelToggles: Array<{ id: AppPanel; label: string; icon: string }> = [
   {
     id: "components",
     label: "Komponenty",
-    // Puzzle piece / modular components icon
-    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V19c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7s2.7 1.21 2.7 2.7V21H17c1.1 0 2-.9 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z"/></svg>`,
+    // Layers icon
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zm.01-2.99l7.36-5.73L21 8.07l-9-7-9 7 1.63 1.26 7.37 5.72zm0-11.06l6.61 5.14L12 15.13l-6.62-5.5L12 4.49z"/></svg>`,
   },
   {
     id: "relations",
-    label: "Relacje między obiektami",
-    // Chain link icon - clearly represents connections/relations between objects
-    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>`,
+    label: "Relacje",
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7a3 3 0 1 0 2.83 4H14.2a3 3 0 1 0 0-2H9.83A3 3 0 0 0 7 7zm10 6a3 3 0 1 0-2.83 4H9.8a3 3 0 1 0 0 2h4.37A3 3 0 1 0 17 13z"/></svg>`,
   },
   {
     id: "grid",
@@ -218,8 +203,8 @@ const panelToggles: Array<{ id: AppPanel; label: string; icon: string }> = [
   {
     id: "history",
     label: "Historia zmian",
-    // Standard clock with hands - clearly represents time/history
-    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>`,
+    // Clock icon
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 1 0 0 18A9 9 0 0 0 13 3zm-1 5h1.5l.5 5 3.5 2.1-.75 1.3L13 14.27V8zM3 13c0-4.08 2.91-7.47 6.74-8.24L10 6.26A7 7 0 0 0 5 13H3z"/></svg>`,
   },
 ];
 
@@ -273,11 +258,6 @@ async function onProjectSelect(id: string) {
 }
 
 // ---- Context bar actions ----
-
-function roundPos(v: number) {
-  return parseFloat(v.toFixed(3));
-}
-
 function onDeselect() {
   store.deselectAll();
   store.setActivePanel("none");
@@ -313,9 +293,9 @@ async function onContextBarMove(delta: {
   const obj = store.state.objects.find((o) => o.id === id);
   if (!obj) return;
   await store.updateObjectPosition(id, {
-    position_x: roundPos(obj.position_x + delta.dx),
-    position_y: roundPos(obj.position_y + delta.dy),
-    position_z: roundPos(obj.position_z + delta.dz),
+    position_x: Math.round(obj.position_x + delta.dx),
+    position_y: Math.round(obj.position_y + delta.dy),
+    position_z: Math.round(obj.position_z + delta.dz),
     rotation_y: obj.rotation_y + delta.dr,
   });
 }
@@ -397,8 +377,6 @@ function onKeyDown(e: KeyboardEvent) {
       store.setActivePanel("none");
       return;
     }
-    // Let ContextBar handle Escape when move-controls are active
-    if (store.state.contextMode === "move-controls") return;
     if (store.state.contextMode !== "none") {
       onDeselect();
     }
@@ -407,9 +385,6 @@ function onKeyDown(e: KeyboardEvent) {
 
   // Tool shortcuts
   if (!ctrl) {
-    // Don't handle tool shortcuts when move-controls are active (ContextBar handles them)
-    if (store.state.contextMode === "move-controls") return;
-
     if (e.key === "s" || e.key === "S") {
       const active = document.activeElement?.tagName;
       if (active === "INPUT" || active === "TEXTAREA") return;
@@ -419,10 +394,6 @@ function onKeyDown(e: KeyboardEvent) {
       const active = document.activeElement?.tagName;
       if (active === "INPUT" || active === "TEXTAREA") return;
       store.setSceneMode("move");
-      // Auto-enter move-controls if object is already selected
-      if (store.state.selectedObjectIds.length > 0) {
-        store.setContextMode("move-controls");
-      }
     }
     if (e.key === "r" || e.key === "R") {
       const active = document.activeElement?.tagName;

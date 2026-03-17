@@ -292,64 +292,6 @@ function updateRelationOverlay() {
   overlayFrame = requestAnimationFrame(next);
 }
 
-const DRAG_SNAP_THRESHOLD_MM = 30;
-
-function getSnapForDrag(
-  objId: string,
-  rawX: number,
-  rawZ: number,
-): { x: number; z: number } | null {
-  const obj = store.state.objects.find((o) => o.id === objId);
-  if (!obj) return null;
-
-  const hw = obj.width / 2;
-  const hd = obj.depth / 2;
-
-  let bestX: { dist: number; value: number } | null = null;
-  let bestZ: { dist: number; value: number } | null = null;
-
-  for (const other of store.state.objects) {
-    if (other.id === objId) continue;
-
-    const oRight = other.position_x + other.width / 2;
-    const oLeft = other.position_x - other.width / 2;
-    const oFront = other.position_z + other.depth / 2;
-    const oBack = other.position_z - other.depth / 2;
-
-    const dRight = rawX + hw;
-    const dLeft = rawX - hw;
-    const dFront = rawZ + hd;
-    const dBack = rawZ - hd;
-
-    // X-axis: right edge of dragged ↔ left edge of other
-    const distRL = Math.abs(dRight - oLeft);
-    if (distRL < DRAG_SNAP_THRESHOLD_MM && (!bestX || distRL < bestX.dist)) {
-      bestX = { dist: distRL, value: oLeft - hw };
-    }
-    // X-axis: left edge of dragged ↔ right edge of other
-    const distLR = Math.abs(dLeft - oRight);
-    if (distLR < DRAG_SNAP_THRESHOLD_MM && (!bestX || distLR < bestX.dist)) {
-      bestX = { dist: distLR, value: oRight + hw };
-    }
-    // Z-axis: front edge of dragged ↔ back edge of other
-    const distFB = Math.abs(dFront - oBack);
-    if (distFB < DRAG_SNAP_THRESHOLD_MM && (!bestZ || distFB < bestZ.dist)) {
-      bestZ = { dist: distFB, value: oBack - hd };
-    }
-    // Z-axis: back edge of dragged ↔ front edge of other
-    const distBF = Math.abs(dBack - oFront);
-    if (distBF < DRAG_SNAP_THRESHOLD_MM && (!bestZ || distBF < bestZ.dist)) {
-      bestZ = { dist: distBF, value: oFront + hd };
-    }
-  }
-
-  if (!bestX && !bestZ) return null;
-  return {
-    x: bestX ? bestX.value : rawX,
-    z: bestZ ? bestZ.value : rawZ,
-  };
-}
-
 function onMouseDown(e: MouseEvent) {
   if (!scene) return;
   if (e.button !== 0) return;
@@ -360,17 +302,18 @@ function onMouseDown(e: MouseEvent) {
 
   if (store.state.sceneMode === "move" && id) {
     store.selectObject(id, false);
-    scene.startDrag(
-      e,
-      id,
-      async (objId, x, z) => {
-        await store.updateObjectPosition(objId, {
-          position_x: parseFloat(x.toFixed(3)),
-          position_z: parseFloat(z.toFixed(3)),
-        });
-      },
-      getSnapForDrag,
-    );
+    scene.startDrag(e, id, async (objId, x, z) => {
+      const obj = store.state.objects.find((o) => o.id === objId);
+      if (obj) {
+        const mesh = scene?.objectMeshMap.get(objId);
+        if (mesh) {
+          await store.updateObjectPosition(objId, {
+            position_x: Math.round(x),
+            position_z: Math.round(z),
+          });
+        }
+      }
+    });
   }
 }
 
@@ -411,7 +354,7 @@ async function onClick(e: MouseEvent) {
 
   if (id) {
     store.selectObject(id, isMulti);
-  } else if (!isMulti) {
+  } else {
     store.deselectAll();
     if (store.state.activePanel === "object-props") {
       store.setActivePanel("none");
