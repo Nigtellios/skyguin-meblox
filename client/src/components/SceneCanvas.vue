@@ -18,26 +18,24 @@
         <marker
           id="scene-relation-arrow"
           viewBox="0 0 10 10"
-          refX="9"
+          refX="5"
           refY="5"
           markerWidth="6"
           markerHeight="6"
-          orient="auto-start-reverse"
+          orient="auto"
         >
           <path d="M 0 0 L 10 5 L 0 10 z" fill="#60a5fa" />
         </marker>
       </defs>
 
       <g v-for="item in relationOverlay" :key="item.id">
-        <line
-          :x1="item.start.x"
-          :y1="item.start.y"
-          :x2="item.end.x"
-          :y2="item.end.y"
+        <polyline
+          :points="`${item.start.x},${item.start.y} ${item.mid.x},${item.mid.y} ${item.end.x},${item.end.y}`"
+          fill="none"
           stroke="#60a5fa"
           stroke-width="2.5"
           stroke-dasharray="6 4"
-          marker-end="url(#scene-relation-arrow)"
+          marker-mid="url(#scene-relation-arrow)"
         />
         <g>
           <rect
@@ -153,6 +151,7 @@ const relationOverlay = ref<
   Array<{
     id: string;
     start: { x: number; y: number };
+    mid: { x: number; y: number };
     end: { x: number; y: number };
     label: { x: number; y: number; text: string; width: number };
   }>
@@ -256,6 +255,7 @@ function updateRelationOverlay() {
         return {
           id: relation.id,
           start,
+          mid: { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 },
           end,
           label: {
             x: (start.x + end.x) / 2,
