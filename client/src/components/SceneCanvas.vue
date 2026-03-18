@@ -14,6 +14,8 @@
     <svg
       v-if="showRelationOverlay && relationOverlay.length > 0"
       class="pointer-events-none absolute inset-0 z-20"
+      width="100%"
+      height="100%"
       aria-hidden="true"
     >
       <defs>
@@ -79,6 +81,8 @@
     <svg
       v-if="snapAnchorDots.length > 0"
       class="pointer-events-none absolute inset-0 z-30"
+      width="100%"
+      height="100%"
       aria-hidden="true"
     >
       <g v-for="dot in snapAnchorDots" :key="`${dot.objectId}-${dot.anchorIndex}`">
@@ -137,7 +141,7 @@
           @click="onCtxMagnet"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M5 5h3v5.5c0 2.49 2.01 4.5 4.5 4.5S17 12.99 17 10.5V5h3v5.5C20 14.64 16.64 18 12.5 18S5 14.64 5 10.5V5z"/>
+            <path d="M12 2C8.13 2 5 5.13 5 9v7h3V9c0-2.21 1.79-4 4-4s4 1.79 4 4v7h3V9c0-3.87-3.13-7-7-7zM8 18h3v2H8v-2zm5 0h3v2h-3v-2z"/>
           </svg>
           Magnes
         </button>

@@ -59,9 +59,9 @@
         title="Przyklej do krawędzi"
         @click="$emit('toggle-snap')"
       >
-        <!-- Horseshoe magnet icon -->
+        <!-- Horseshoe magnet icon with poles -->
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M5 5h3v5.5c0 2.49 2.01 4.5 4.5 4.5S17 12.99 17 10.5V5h3v5.5C20 14.64 16.64 18 12.5 18S5 14.64 5 10.5V5z"/>
+          <path d="M12 2C8.13 2 5 5.13 5 9v7h3V9c0-2.21 1.79-4 4-4s4 1.79 4 4v7h3V9c0-3.87-3.13-7-7-7zM8 18h3v2H8v-2zm5 0h3v2h-3v-2z"/>
         </svg>
       </button>
 
@@ -285,7 +285,7 @@
       class="flex items-center gap-2 panel-glass rounded-2xl px-4 py-2.5 border border-amber-700/50 shadow-xl"
     >
       <svg class="text-amber-400 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M5 5h3v5.5c0 2.49 2.01 4.5 4.5 4.5S17 12.99 17 10.5V5h3v5.5C20 14.64 16.64 18 12.5 18S5 14.64 5 10.5V5z"/>
+        <path d="M12 2C8.13 2 5 5.13 5 9v7h3V9c0-2.21 1.79-4 4-4s4 1.79 4 4v7h3V9c0-3.87-3.13-7-7-7zM8 18h3v2H8v-2zm5 0h3v2h-3v-2z"/>
       </svg>
       <span v-if="snapPhase === 'select-source'" class="text-sm text-amber-300">
         Kliknij <span class="text-red-400 font-medium">czerwoną</span> (twarz) lub <span class="text-blue-400 font-medium">niebieską</span> (krawędź) kropkę na obiekcie źródłowym
