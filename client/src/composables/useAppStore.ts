@@ -649,14 +649,17 @@ export const useAppStore = defineStore("app", () => {
       targetAnchor,
     );
 
-    exitSnapAnchor();
-
-    await updateObjectPosition(sourceId, newPos);
-    await linkObjectsTogether(sourceId, targetObjectId);
-    await recordHistory(
-      "snap_attach",
-      `Doczepiono: ${source.name} → ${target.name}`,
-    );
+    try {
+      await updateObjectPosition(sourceId, newPos);
+      await linkObjectsTogether(sourceId, targetObjectId);
+      await recordHistory(
+        "snap_attach",
+        `Doczepiono: ${source.name} → ${target.name}`,
+      );
+      exitSnapAnchor();
+    } catch (error) {
+      console.error("performSnap failed", error);
+    }
   }
 
   /**
