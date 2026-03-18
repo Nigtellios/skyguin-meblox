@@ -660,7 +660,15 @@ export function createFetchHandler(database: Database, debugMode = false) {
                 AND id != ?
                 AND project_id = ?`,
           )
-          .run(dx, dy, dz, now, existingObject.component_id, params.id, params.projectId);
+          .run(
+            dx,
+            dy,
+            dz,
+            now,
+            existingObject.component_id,
+            params.id,
+            params.projectId,
+          );
 
         // Collect companion IDs so their outgoing relations are also resolved.
         const companions = getAll<Pick<FurnitureObjectRow, "id">>(

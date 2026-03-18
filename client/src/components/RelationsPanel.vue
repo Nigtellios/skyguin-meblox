@@ -628,7 +628,11 @@ function onFieldDragStart(
   }
 }
 
-function onFieldDragOver(objectId: string, field: BuilderField, event: DragEvent) {
+function onFieldDragOver(
+  objectId: string,
+  field: BuilderField,
+  event: DragEvent,
+) {
   if (!dragState.field || dragState.objectId === objectId) {
     dragOverTarget.objectId = null;
     dragOverTarget.field = null;
