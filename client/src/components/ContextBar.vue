@@ -59,9 +59,8 @@
         title="Przyklej do krawędzi"
         @click="$emit('toggle-snap')"
       >
-        <!-- Magnet icon -->
+        <!-- Horseshoe magnet icon -->
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99l1.5 1.5z"/>
           <path d="M5 5h3v5.5c0 2.49 2.01 4.5 4.5 4.5S17 12.99 17 10.5V5h3v5.5C20 14.64 16.64 18 12.5 18S5 14.64 5 10.5V5z"/>
         </svg>
       </button>
@@ -288,7 +287,13 @@
       <svg class="text-amber-400 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
         <path d="M5 5h3v5.5c0 2.49 2.01 4.5 4.5 4.5S17 12.99 17 10.5V5h3v5.5C20 14.64 16.64 18 12.5 18S5 14.64 5 10.5V5z"/>
       </svg>
-      <span class="text-sm text-amber-300">Tryb przyklejania — kliknij inny obiekt</span>
+      <span v-if="snapPhase === 'select-source'" class="text-sm text-amber-300">
+        Kliknij <span class="text-red-400 font-medium">czerwoną</span> (twarz) lub <span class="text-blue-400 font-medium">niebieską</span> (krawędź) kropkę na obiekcie źródłowym
+      </span>
+      <span v-else-if="snapPhase === 'select-target'" class="text-sm text-amber-300">
+        Teraz kliknij punkt doczepienia na <span class="font-medium">drugim</span> obiekcie
+      </span>
+      <span v-else class="text-sm text-amber-300">Tryb przyklejania — kliknij inny obiekt</span>
       <button
         class="btn-secondary text-xs ml-2"
         @click="$emit('exit-snap-mode')"
@@ -308,6 +313,7 @@ const props = defineProps<{
   sceneMode: SceneMode;
   selectedCount: number;
   firstSelected: FurnitureObject | null;
+  snapPhase?: "none" | "select-source" | "select-target";
 }>();
 
 const emit = defineEmits<{
