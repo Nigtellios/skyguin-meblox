@@ -288,7 +288,7 @@
       <svg class="text-amber-400 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
         <path d="M5 5h3v5.5c0 2.49 2.01 4.5 4.5 4.5S17 12.99 17 10.5V5h3v5.5C20 14.64 16.64 18 12.5 18S5 14.64 5 10.5V5z"/>
       </svg>
-      <span class="text-sm text-amber-300">Tryb przyklejania — kliknij inny obiekt</span>
+      <span class="text-sm text-amber-300">Tryb przyklejania — najedź na ścianę obiektu i kliknij</span>
       <button
         class="btn-secondary text-xs ml-2"
         @click="$emit('exit-snap-mode')"

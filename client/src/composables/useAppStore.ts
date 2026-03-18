@@ -569,7 +569,11 @@ export const useAppStore = defineStore("app", () => {
     }
   }
 
-  function snapObjectToEdge(movingId: string, targetId: string) {
+  function snapObjectToEdge(
+    movingId: string,
+    targetId: string,
+    faceNormal?: { x: number; y: number; z: number } | null,
+  ) {
     const moving = state.objects.find((o) => o.id === movingId);
     const target = state.objects.find((o) => o.id === targetId);
     if (!moving || !target) return null;
@@ -583,6 +587,73 @@ export const useAppStore = defineStore("app", () => {
     const targetFront = target.position_z + target.depth / 2;
     const targetBack = target.position_z - target.depth / 2;
 
+    // When a specific face normal is provided, snap to that exact face.
+    // The face normal is in the target's LOCAL mesh space; transform it to
+    // world space using the target's rotation_y so the snap direction is correct
+    // even for rotated objects.
+    if (faceNormal) {
+      const ry = target.rotation_y;
+      const lx = faceNormal.x;
+      const lz = faceNormal.z;
+      // Rotate local normal by rotation_y to get world-space direction.
+      // Do NOT round yet — keep full precision to find the dominant axis.
+      const wx = lx * Math.cos(ry) + lz * Math.sin(ry);
+      const wz = -lx * Math.sin(ry) + lz * Math.cos(ry);
+      const wy = faceNormal.y;
+
+      // Determine dominant world-space axis by magnitude comparison.
+      const absX = Math.abs(wx);
+      const absY = Math.abs(wy);
+      const absZ = Math.abs(wz);
+
+      if (absX >= absY && absX >= absZ && absX > 0.5) {
+        if (wx > 0) {
+          // Target's +X (right) face → moving's left edge touches target's right edge
+          return {
+            position_x: targetRight + moving.width / 2,
+            position_z: moving.position_z,
+          };
+        }
+        // Target's -X (left) face → moving's right edge touches target's left edge
+        return {
+          position_x: targetLeft - moving.width / 2,
+          position_z: moving.position_z,
+        };
+      }
+      if (absZ >= absX && absZ >= absY && absZ > 0.5) {
+        if (wz > 0) {
+          // Target's +Z (front) face → moving's back edge touches target's front edge
+          return {
+            position_x: moving.position_x,
+            position_z: targetFront + moving.depth / 2,
+          };
+        }
+        // Target's -Z (back) face → moving's front edge touches target's back edge
+        return {
+          position_x: moving.position_x,
+          position_z: targetBack - moving.depth / 2,
+        };
+      }
+      if (absY >= absX && absY >= absZ && absY > 0.5) {
+        if (wy > 0) {
+          // Target's +Y (top) face → moving sits on top of target
+          return {
+            position_x: moving.position_x,
+            position_z: moving.position_z,
+            position_y: target.position_y + target.height,
+          };
+        }
+        // Target's -Y (bottom) face → moving is placed below target
+        return {
+          position_x: moving.position_x,
+          position_z: moving.position_z,
+          position_y: target.position_y - moving.height,
+        };
+      }
+      // Face normal didn't resolve to a dominant axis — fall through to auto-snap
+    }
+
+    // Auto-snap: pick the edge pair with the smallest displacement
     const snapOptions = [
       { delta_x: targetRight - movingLeft, delta_z: 0 },
       { delta_x: targetLeft - movingRight, delta_z: 0 },

@@ -138,7 +138,10 @@ import AddObjectDialog from "./AddObjectDialog.vue";
 const ATTACH_SOURCE_BADGE_Y_OFFSET = "-150%";
 
 const emit = defineEmits<{
-  "snap-target-selected": [targetId: string];
+  "snap-target-selected": [
+    targetId: string,
+    faceNormal: { x: number; y: number; z: number } | null,
+  ];
 }>();
 
 const viewportRef = ref<HTMLDivElement | null>(null);
@@ -452,8 +455,13 @@ async function onClick(e: MouseEvent) {
   }
 
   if (store.state.sceneMode === "snap") {
-    if (id && !store.state.selectedObjectIds.includes(id)) {
-      emit("snap-target-selected", id);
+    const faceHit = scene.pickObjectWithFace(e);
+    if (faceHit && !store.state.selectedObjectIds.includes(faceHit.id)) {
+      emit("snap-target-selected", faceHit.id, {
+        x: faceHit.faceNormal.x,
+        y: faceHit.faceNormal.y,
+        z: faceHit.faceNormal.z,
+      });
     }
     return;
   }

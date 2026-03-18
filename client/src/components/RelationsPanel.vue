@@ -155,12 +155,13 @@
                         :key="field"
                         type="button"
                         class="flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition"
-                        :class="fieldClass(field)"
+                        :class="fieldClass(object.id, field)"
                         :draggable="canDragField(field)"
                         data-field-chip
                         @dragstart="onFieldDragStart(object.id, field, $event)"
                         @dragend="clearFieldDrag"
-                        @dragover.prevent="onFieldDragOver(field)"
+                        @dragover="onFieldDragOver(object.id, field, $event)"
+                        @dragleave="onFieldDragLeave($event)"
                         @drop.prevent="onFieldDrop(object.id, field)"
                       >
                         <span
@@ -405,6 +406,14 @@ const dragState = reactive<{
   field: null,
 });
 
+const dragOverTarget = reactive<{
+  objectId: string | null;
+  field: BuilderField | null;
+}>({
+  objectId: null,
+  field: null,
+});
+
 let detachNodeDrag: (() => void) | null = null;
 
 watch(
@@ -572,10 +581,16 @@ function isFieldActive(objectId: string, field: BuilderField) {
   );
 }
 
-function fieldClass(field: BuilderField) {
+function fieldClass(objectId: string, field: BuilderField) {
+  const isDragTarget =
+    dragOverTarget.objectId === objectId && dragOverTarget.field === field;
+
   if (store.state.relationEditorMode === "visual") {
+    if (isDragTarget) {
+      return "border-blue-400 bg-blue-500/20 ring-1 ring-blue-400/60";
+    }
     return canDragField(field)
-      ? "border-slate-700 bg-slate-950/80 hover:border-blue-400 hover:bg-blue-500/10"
+      ? "border-slate-700 bg-slate-950/80 hover:border-blue-400 hover:bg-blue-500/10 cursor-grab"
       : "cursor-not-allowed border-slate-800 bg-slate-900/60 opacity-60";
   }
 
@@ -613,11 +628,35 @@ function onFieldDragStart(
   }
 }
 
-function onFieldDragOver(field: BuilderField) {
-  if (!dragState.field) return;
-  if (!canConnectFields(dragState.field, field, "visual")) {
+function onFieldDragOver(objectId: string, field: BuilderField, event: DragEvent) {
+  if (!dragState.field || dragState.objectId === objectId) {
+    dragOverTarget.objectId = null;
+    dragOverTarget.field = null;
     return;
   }
+  if (!canConnectFields(dragState.field, field, "visual")) {
+    dragOverTarget.objectId = null;
+    dragOverTarget.field = null;
+    return;
+  }
+  // Valid drop target — allow drop and show copy cursor
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "copy";
+  }
+  dragOverTarget.objectId = objectId;
+  dragOverTarget.field = field;
+}
+
+function onFieldDragLeave(event: DragEvent) {
+  // Only clear when the cursor actually leaves the field button, not when it
+  // moves into a child element (e.g. the label or value span inside the button).
+  const related = event.relatedTarget as Node | null;
+  if (related && (event.currentTarget as HTMLElement).contains(related)) {
+    return;
+  }
+  dragOverTarget.objectId = null;
+  dragOverTarget.field = null;
 }
 
 async function onFieldDrop(targetObjectId: string, targetField: BuilderField) {
@@ -646,6 +685,8 @@ async function onFieldDrop(targetObjectId: string, targetField: BuilderField) {
 function clearFieldDrag() {
   dragState.objectId = null;
   dragState.field = null;
+  dragOverTarget.objectId = null;
+  dragOverTarget.field = null;
 }
 
 function beginNodeDrag(objectId: string, event: MouseEvent) {

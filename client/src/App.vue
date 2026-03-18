@@ -340,10 +340,13 @@ function onExitSnapMode() {
   store.setContextMode("object-actions");
 }
 
-function onSnapTargetSelected(targetId: string) {
+function onSnapTargetSelected(
+  targetId: string,
+  faceNormal: { x: number; y: number; z: number } | null,
+) {
   const movingId = store.state.selectedObjectIds[0];
   if (!movingId) return;
-  const newPos = store.snapObjectToEdge(movingId, targetId);
+  const newPos = store.snapObjectToEdge(movingId, targetId, faceNormal);
   if (newPos) {
     store.updateObjectPosition(movingId, newPos);
   }
