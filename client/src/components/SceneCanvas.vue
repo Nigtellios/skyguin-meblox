@@ -82,7 +82,7 @@
       aria-hidden="true"
     >
       <g v-for="dot in snapAnchorDots" :key="`${dot.objectId}-${dot.anchorIndex}`">
-        <!-- Outer ring for selected dot -->
+        <!-- Selection ring -->
         <circle
           v-if="dot.selected"
           :cx="dot.x"
@@ -93,13 +93,23 @@
           stroke-width="2"
           opacity="0.9"
         />
-        <!-- The dot itself -->
+        <!-- Face anchor: circle -->
         <circle
+          v-if="dot.type === 'face'"
           :cx="dot.x"
           :cy="dot.y"
           :r="dot.selected ? 7 : 5"
-          :fill="dot.type === 'face' ? '#ef4444' : '#3b82f6'"
-          :opacity="dot.hovered ? 1 : 0.75"
+          fill="#ef4444"
+          :opacity="dot.hovered ? 1 : 0.8"
+          stroke="white"
+          stroke-width="1.5"
+        />
+        <!-- Edge anchor: diamond (rotated square) -->
+        <polygon
+          v-else
+          :points="`${dot.x},${dot.y - (dot.selected ? 7 : 5)} ${dot.x + (dot.selected ? 7 : 5)},${dot.y} ${dot.x},${dot.y + (dot.selected ? 7 : 5)} ${dot.x - (dot.selected ? 7 : 5)},${dot.y}`"
+          fill="#3b82f6"
+          :opacity="dot.hovered ? 1 : 0.8"
           stroke="white"
           stroke-width="1.5"
         />
@@ -178,7 +188,7 @@ import {
 import AddObjectDialog from "./AddObjectDialog.vue";
 
 const ATTACH_SOURCE_BADGE_Y_OFFSET = "-150%";
-const ANCHOR_CLICK_RADIUS_PX = 16;
+const ANCHOR_CLICK_RADIUS_PX = 12;
 
 const emit = defineEmits<{
   "snap-target-selected": [targetId: string];
