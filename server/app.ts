@@ -572,9 +572,14 @@ export function createFetchHandler(database: Database, debugMode = false) {
     // propagate movement to component companions.
     const existingObject = getOne<FurnitureObjectRow>(
       database,
-      "SELECT * FROM furniture_objects WHERE id = ?",
+      "SELECT * FROM furniture_objects WHERE id = ? AND project_id = ?",
       params.id,
+      params.projectId,
     );
+
+    if (!existingObject) {
+      return new Response("Not found", { status: 404 });
+    }
 
     const materialTemplateId =
       body.material_template_id !== undefined
@@ -597,7 +602,7 @@ export function createFetchHandler(database: Database, debugMode = false) {
           component_id = COALESCE(?, component_id),
           is_independent = COALESCE(?, is_independent),
           updated_at = ?
-         WHERE id = ?`,
+         WHERE id = ? AND project_id = ?`,
       )
       .run(
         toSqlValue(body.name),
@@ -614,6 +619,7 @@ export function createFetchHandler(database: Database, debugMode = false) {
         toSqlValue(body.is_independent),
         now,
         params.id,
+        params.projectId,
       );
 
     // When a non-independent component member is moved, propagate the same
