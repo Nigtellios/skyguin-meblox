@@ -655,16 +655,20 @@ export function createFetchHandler(database: Database, debugMode = false) {
                   position_y = position_y + ?,
                   position_z = position_z + ?,
                   updated_at = ?
-              WHERE component_id = ? AND is_independent = 0 AND id != ?`,
+              WHERE component_id = ?
+                AND is_independent = 0
+                AND id != ?
+                AND project_id = ?`,
           )
-          .run(dx, dy, dz, now, existingObject.component_id, params.id);
+          .run(dx, dy, dz, now, existingObject.component_id, params.id, params.projectId);
 
         // Collect companion IDs so their outgoing relations are also resolved.
         const companions = getAll<Pick<FurnitureObjectRow, "id">>(
           database,
-          "SELECT id FROM furniture_objects WHERE component_id = ? AND is_independent = 0 AND id != ?",
+          "SELECT id FROM furniture_objects WHERE component_id = ? AND is_independent = 0 AND id != ? AND project_id = ?",
           existingObject.component_id,
           params.id,
+          params.projectId,
         );
         for (const c of companions) {
           companionIds.push(c.id);
