@@ -55,10 +55,18 @@ export function anchorWorldPos(
   obj: FurnitureObject,
   anchor: SnapAnchor,
 ): { x: number; y: number; z: number } {
+  const ry = obj.rotation_y ?? 0;
+  const cosY = Math.cos(ry);
+  const sinY = Math.sin(ry);
+
+  // Rotate local (lx, lz) around Y by rotation_y, relative to mesh center.
+  const rotatedLx = anchor.lx * cosY - anchor.lz * sinY;
+  const rotatedLz = anchor.lx * sinY + anchor.lz * cosY;
+
   return {
-    x: obj.position_x + anchor.lx,
+    x: obj.position_x + rotatedLx,
     y: obj.position_y + obj.height / 2 + anchor.ly,
-    z: obj.position_z + anchor.lz,
+    z: obj.position_z + rotatedLz,
   };
 }
 
