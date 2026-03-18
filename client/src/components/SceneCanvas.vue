@@ -3,7 +3,7 @@
     <canvas
       ref="canvasRef"
       class="block h-full w-full"
-      :class="isCrosshairMode ? 'cursor-crosshair' : ''"
+      :class="shouldShowHoverPreview ? 'cursor-crosshair' : ''"
       @mousedown="onMouseDown"
       @mousemove="onMouseMove"
       @mouseleave="onMouseLeave"
@@ -176,7 +176,7 @@ const isAttachMode = computed(
     store.state.activePanel === "relations" &&
     store.state.relationEditorMode === "attach",
 );
-const isCrosshairMode = computed(
+const shouldShowHoverPreview = computed(
   () => store.state.sceneMode === "snap" || isAttachMode.value,
 );
 const showRelationOverlay = computed(
@@ -222,9 +222,9 @@ watch(
 );
 
 watch(
-  () => store.state.sceneMode,
-  (newMode) => {
-    if (newMode !== "snap") {
+  () => shouldShowHoverPreview.value,
+  (enabled) => {
+    if (!enabled) {
       scene?.clearHoverHighlight();
     }
   },
@@ -365,7 +365,7 @@ function onMouseDown(e: MouseEvent) {
   if (!scene) return;
   if (e.button !== 0) return;
 
-  if (isCrosshairMode.value) return;
+  if (shouldShowHoverPreview.value) return;
 
   const id = scene.pickObject(e);
 
@@ -405,10 +405,15 @@ function onMouseDown(e: MouseEvent) {
 
 function onMouseMove(e: MouseEvent) {
   if (!scene) return;
-  if (store.state.sceneMode !== "snap") return;
+  if (!shouldShowHoverPreview.value) return;
 
   const hit = scene.pickObjectWithFace(e);
-  if (hit && !store.state.selectedObjectIds.includes(hit.id)) {
+  const isBlockedTarget =
+    (store.state.relationAttachSourceId !== null &&
+      hit?.id === store.state.relationAttachSourceId) ||
+    (hit ? store.state.selectedObjectIds.includes(hit.id) : false);
+
+  if (hit && !isBlockedTarget) {
     scene.setHoverHighlight(hit.id, hit.faceNormal);
   } else {
     scene.clearHoverHighlight();
