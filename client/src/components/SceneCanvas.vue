@@ -376,7 +376,7 @@ function onMouseDown(e: MouseEvent) {
     // all other members so they can be moved visually as a rigid group.
     const draggedObj = store.state.objects.find((o) => o.id === id);
     const companionIds: string[] = [];
-    if (draggedObj?.component_id) {
+    if (draggedObj?.component_id && !draggedObj.is_independent) {
       for (const other of store.state.objects) {
         if (
           other.id !== id &&
