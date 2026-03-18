@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { computed, reactive, readonly } from "vue";
+import { computeSnapPosition, getObjectSnapAnchors } from "../lib/snapAnchors";
 import type {
   AppPanel,
   ComponentGroup,
@@ -65,6 +66,11 @@ function createInitialState() {
       sizeZ: 100,
       unit: "mm",
     } as GridConfig,
+
+    // Snap-anchor state
+    snapPhase: "none" as "none" | "select-source" | "select-target",
+    snapSourceObjectId: null as string | null,
+    snapSourceAnchorIndex: null as number | null,
 
     // Loading states
     loading: false,
@@ -603,6 +609,95 @@ export const useAppStore = defineStore("app", () => {
     };
   }
 
+  // ---- Snap-anchor workflow ----
+
+  function startSnapAnchor(objectId: string) {
+    state.snapSourceObjectId = objectId;
+    state.snapPhase = "select-source";
+    state.snapSourceAnchorIndex = null;
+    state.sceneMode = "snap";
+    state.contextMode = "snap-mode";
+  }
+
+  function selectSnapSourceAnchor(anchorIndex: number) {
+    state.snapSourceAnchorIndex = anchorIndex;
+    state.snapPhase = "select-target";
+  }
+
+  async function performSnap(
+    targetObjectId: string,
+    targetAnchorIndex: number,
+  ) {
+    const sourceId = state.snapSourceObjectId;
+    const sourceAnchorIdx = state.snapSourceAnchorIndex;
+    if (!sourceId || sourceAnchorIdx === null) return;
+
+    const source = state.objects.find((o) => o.id === sourceId);
+    const target = state.objects.find((o) => o.id === targetObjectId);
+    if (!source || !target) return;
+
+    const sourceAnchors = getObjectSnapAnchors(source);
+    const targetAnchors = getObjectSnapAnchors(target);
+    const sourceAnchor = sourceAnchors[sourceAnchorIdx];
+    const targetAnchor = targetAnchors[targetAnchorIndex];
+    if (!sourceAnchor || !targetAnchor) return;
+
+    const newPos = computeSnapPosition(
+      source,
+      sourceAnchor,
+      target,
+      targetAnchor,
+    );
+
+    exitSnapAnchor();
+
+    await updateObjectPosition(sourceId, newPos);
+    await linkObjectsTogether(sourceId, targetObjectId);
+    await recordHistory(
+      "snap_attach",
+      `Doczepiono: ${source.name} → ${target.name}`,
+    );
+  }
+
+  /**
+   * Ensures objectA and objectB are in the same component so they move as a
+   * rigid group.  Merges existing components when necessary.
+   */
+  async function linkObjectsTogether(idA: string, idB: string) {
+    const objA = state.objects.find((o) => o.id === idA);
+    const objB = state.objects.find((o) => o.id === idB);
+    if (!objA || !objB) return;
+
+    const compAId = objA.component_id;
+    const compBId = objB.component_id;
+
+    // Already in the same (non-null) component — nothing to do.
+    if (compAId !== null && compAId === compBId) return;
+
+    // Collect all non-independent members from both groups (or the objects
+    // themselves when they are not part of a component yet).
+    const memberIds = new Set<string>();
+    for (const o of state.objects) {
+      if (!o.is_independent) {
+        if (compAId && o.component_id === compAId) memberIds.add(o.id);
+        if (compBId && o.component_id === compBId) memberIds.add(o.id);
+      }
+    }
+    if (!compAId) memberIds.add(idA);
+    if (!compBId) memberIds.add(idB);
+
+    await createComponent(`${objA.name}+${objB.name}`, Array.from(memberIds));
+  }
+
+  function exitSnapAnchor() {
+    state.snapSourceObjectId = null;
+    state.snapPhase = "none";
+    state.snapSourceAnchorIndex = null;
+    state.sceneMode = "select";
+    state.contextMode =
+      state.selectedObjectIds.length > 0 ? "object-actions" : "none";
+  }
+
   return {
     state: readonly(state),
     currentProject,
@@ -650,5 +745,9 @@ export const useAppStore = defineStore("app", () => {
     copySelected,
     pasteClipboard,
     snapObjectToEdge,
+    startSnapAnchor,
+    selectSnapSourceAnchor,
+    performSnap,
+    exitSnapAnchor,
   };
 });

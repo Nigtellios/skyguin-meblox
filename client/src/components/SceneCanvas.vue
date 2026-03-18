@@ -75,6 +75,37 @@
       Źródło attach: {{ attachSourceOverlay.name }}
     </div>
 
+    <!-- Snap-anchor dot overlay -->
+    <svg
+      v-if="snapAnchorDots.length > 0"
+      class="pointer-events-none absolute inset-0 z-30"
+      aria-hidden="true"
+    >
+      <g v-for="dot in snapAnchorDots" :key="`${dot.objectId}-${dot.anchorIndex}`">
+        <!-- Outer ring for selected dot -->
+        <circle
+          v-if="dot.selected"
+          :cx="dot.x"
+          :cy="dot.y"
+          r="10"
+          fill="none"
+          :stroke="dot.type === 'face' ? '#ef4444' : '#3b82f6'"
+          stroke-width="2"
+          opacity="0.9"
+        />
+        <!-- The dot itself -->
+        <circle
+          :cx="dot.x"
+          :cy="dot.y"
+          :r="dot.selected ? 7 : 5"
+          :fill="dot.type === 'face' ? '#ef4444' : '#3b82f6'"
+          :opacity="dot.hovered ? 1 : 0.75"
+          stroke="white"
+          stroke-width="1.5"
+        />
+      </g>
+    </svg>
+
     <!-- Context menu -->
     <Teleport to="body">
       <div
@@ -89,6 +120,16 @@
           @click="onCtxDuplicate"
         >
           Duplikuj
+        </button>
+        <button
+          v-if="contextMenu.objectId"
+          class="w-full px-3 py-1.5 text-left text-sm text-blue-300 hover:bg-slate-700 flex items-center gap-2"
+          @click="onCtxMagnet"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M5 5h3v5.5c0 2.49 2.01 4.5 4.5 4.5S17 12.99 17 10.5V5h3v5.5C20 14.64 16.64 18 12.5 18S5 14.64 5 10.5V5z"/>
+          </svg>
+          Magnes
         </button>
         <button
           v-if="contextMenu.objectId"
@@ -128,6 +169,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useAppStore } from "../composables/useAppStore";
 import { useScene } from "../composables/useScene";
 import { estimateRelationLabelWidth } from "../lib/relationsBuilder";
+import { anchorWorldPos, getObjectSnapAnchors } from "../lib/snapAnchors";
 import {
   RELATION_FIELD_LABELS,
   RELATION_MODE_LABELS,
@@ -136,6 +178,7 @@ import {
 import AddObjectDialog from "./AddObjectDialog.vue";
 
 const ATTACH_SOURCE_BADGE_Y_OFFSET = "-150%";
+const ANCHOR_CLICK_RADIUS_PX = 16;
 
 const emit = defineEmits<{
   "snap-target-selected": [targetId: string];
@@ -146,6 +189,7 @@ const canvasRef = ref<HTMLCanvasElement | null>(null);
 const store = useAppStore();
 let scene: ReturnType<typeof useScene> | null = null;
 let overlayFrame = 0;
+let snapAnchorFrame = 0;
 
 const showAddDialog = ref(false);
 const addPosition = ref({ x: 0, z: 0 });
@@ -164,6 +208,17 @@ const attachSourceOverlay = ref<{
   name: string;
 } | null>(null);
 
+type AnchorDot = {
+  x: number;
+  y: number;
+  type: "face" | "edge";
+  objectId: string;
+  anchorIndex: number;
+  selected: boolean;
+  hovered: boolean;
+};
+const snapAnchorDots = ref<AnchorDot[]>([]);
+
 const contextMenu = ref({
   visible: false,
   x: 0,
@@ -176,8 +231,11 @@ const isAttachMode = computed(
     store.state.activePanel === "relations" &&
     store.state.relationEditorMode === "attach",
 );
+const isSnapAnchorMode = computed(() => store.state.snapPhase !== "none");
 const shouldShowHoverPreview = computed(
-  () => store.state.sceneMode === "snap" || isAttachMode.value,
+  () =>
+    (store.state.sceneMode === "snap" && !isSnapAnchorMode.value) ||
+    isAttachMode.value,
 );
 const showRelationOverlay = computed(
   () => store.state.activePanel === "relations",
@@ -196,6 +254,7 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener("click", closeContextMenu);
   cancelAnimationFrame(overlayFrame);
+  cancelAnimationFrame(snapAnchorFrame);
 });
 
 function syncScene() {
@@ -240,6 +299,18 @@ watch(
   ],
   () => updateRelationOverlay(),
   { deep: true },
+);
+
+// Start/stop the snap-anchor overlay loop
+watch(
+  () => store.state.snapPhase,
+  (phase) => {
+    if (phase !== "none") {
+      startSnapAnchorLoop();
+    } else {
+      stopSnapAnchorLoop();
+    }
+  },
 );
 
 function updateRelationOverlay() {
@@ -301,6 +372,80 @@ function updateRelationOverlay() {
   };
 
   overlayFrame = requestAnimationFrame(next);
+}
+
+// ---- Snap-anchor dot overlay ----
+
+function buildSnapAnchorDots(): AnchorDot[] {
+  if (!scene || store.state.snapPhase === "none") return [];
+
+  const phase = store.state.snapPhase;
+  const sourceId = store.state.snapSourceObjectId;
+  const dots: AnchorDot[] = [];
+
+  for (const obj of store.state.objects) {
+    if (phase === "select-source" && obj.id !== sourceId) continue;
+    if (phase === "select-target" && obj.id === sourceId) continue;
+
+    const anchors = getObjectSnapAnchors(obj);
+    for (const anchor of anchors) {
+      const wp = anchorWorldPos(obj, anchor);
+      const screen = scene.projectWorldPointToScreen(wp.x, wp.y, wp.z);
+      if (!screen) continue;
+
+      dots.push({
+        x: screen.x,
+        y: screen.y,
+        type: anchor.type,
+        objectId: obj.id,
+        anchorIndex: anchor.index,
+        selected:
+          obj.id === sourceId &&
+          anchor.index === store.state.snapSourceAnchorIndex,
+        hovered: false,
+      });
+    }
+  }
+  return dots;
+}
+
+function startSnapAnchorLoop() {
+  cancelAnimationFrame(snapAnchorFrame);
+  const tick = () => {
+    snapAnchorDots.value = buildSnapAnchorDots();
+    if (store.state.snapPhase !== "none") {
+      snapAnchorFrame = requestAnimationFrame(tick);
+    }
+  };
+  snapAnchorFrame = requestAnimationFrame(tick);
+}
+
+function stopSnapAnchorLoop() {
+  cancelAnimationFrame(snapAnchorFrame);
+  snapAnchorDots.value = [];
+}
+
+/** Returns the nearest anchor dot within ANCHOR_CLICK_RADIUS_PX of the mouse. */
+function findClickedAnchorDot(e: MouseEvent): AnchorDot | null {
+  const canvas = canvasRef.value;
+  if (!canvas) return null;
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+
+  let nearest: AnchorDot | null = null;
+  let nearestDist = ANCHOR_CLICK_RADIUS_PX;
+
+  for (const dot of snapAnchorDots.value) {
+    const dx = dot.x - cx;
+    const dy = dot.y - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearest = dot;
+    }
+  }
+  return nearest;
 }
 
 const DRAG_SNAP_THRESHOLD_MM = 30;
@@ -365,7 +510,7 @@ function onMouseDown(e: MouseEvent) {
   if (!scene) return;
   if (e.button !== 0) return;
 
-  if (shouldShowHoverPreview.value) return;
+  if (shouldShowHoverPreview.value || isSnapAnchorMode.value) return;
 
   const id = scene.pickObject(e);
 
@@ -433,6 +578,28 @@ async function onClick(e: MouseEvent) {
     return;
   }
 
+  // ---- Snap-anchor click handling ----
+  if (isSnapAnchorMode.value) {
+    const phase = store.state.snapPhase;
+
+    if (phase === "select-source") {
+      const dot = findClickedAnchorDot(e);
+      if (dot && dot.objectId === store.state.snapSourceObjectId) {
+        store.selectSnapSourceAnchor(dot.anchorIndex);
+      }
+      return;
+    }
+
+    if (phase === "select-target") {
+      const dot = findClickedAnchorDot(e);
+      if (dot && dot.objectId !== store.state.snapSourceObjectId) {
+        await store.performSnap(dot.objectId, dot.anchorIndex);
+      }
+      return;
+    }
+    return;
+  }
+
   const id = scene.pickObject(e);
 
   if (isAttachMode.value) {
@@ -471,7 +638,7 @@ async function onClick(e: MouseEvent) {
 }
 
 function onContextMenu(e: MouseEvent) {
-  if (!scene || isAttachMode.value) return;
+  if (!scene || isAttachMode.value || isSnapAnchorMode.value) return;
   e.preventDefault();
   const id = scene.pickObject(e);
   if (id) store.selectObject(id, false);
@@ -498,6 +665,13 @@ async function onCtxDuplicate() {
 async function onCtxDelete() {
   if (contextMenu.value.objectId) {
     await store.deleteObject(contextMenu.value.objectId);
+  }
+  closeContextMenu();
+}
+
+function onCtxMagnet() {
+  if (contextMenu.value.objectId) {
+    store.startSnapAnchor(contextMenu.value.objectId);
   }
   closeContextMenu();
 }

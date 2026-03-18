@@ -461,6 +461,30 @@ export function useScene(canvas: HTMLCanvasElement) {
     };
   }
 
+  /**
+   * Projects an arbitrary world-space point (in mm) to 2-D canvas coordinates.
+   */
+  function projectWorldPointToScreen(
+    worldXMm: number,
+    worldYMm: number,
+    worldZMm: number,
+  ): { x: number; y: number } | null {
+    const vec = new THREE.Vector3(
+      worldXMm * SCALE,
+      worldYMm * SCALE,
+      worldZMm * SCALE,
+    ).project(camera);
+    if (vec.z < -1 || vec.z > 1) return null;
+    return {
+      x:
+        (vec.x * NDC_TO_SCREEN_SCALE + NDC_TO_SCREEN_OFFSET) *
+        canvas.clientWidth,
+      y:
+        (-vec.y * NDC_TO_SCREEN_SCALE + NDC_TO_SCREEN_OFFSET) *
+        canvas.clientHeight,
+    };
+  }
+
   // Drag-to-move support
   const isDragging = ref(false);
   let dragObjectId: string | null = null;
@@ -626,6 +650,7 @@ export function useScene(canvas: HTMLCanvasElement) {
     setHoverHighlight,
     clearHoverHighlight,
     projectObjectToScreen,
+    projectWorldPointToScreen,
     startDrag,
     addObject,
     updateObject,

@@ -79,6 +79,7 @@
         :scene-mode="store.state.sceneMode"
         :selected-count="store.state.selectedObjectIds.length"
         :first-selected="store.firstSelectedObject"
+        :snap-phase="store.state.snapPhase"
         @add-object="store.setActivePanel('objects')"
         @open-materials="store.setActivePanel('object-props')"
         @set-scene-mode="store.setSceneMode"
@@ -175,12 +176,6 @@ const tools: Array<{ mode: SceneMode; label: string; icon: string }> = [
     label: "Przesuń (M)",
     // 4-directional arrow (compass rose)
     icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>`,
-  },
-  {
-    mode: "rotate",
-    label: "Obróć (R)",
-    // Circular arrows (refresh/rotate)
-    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/></svg>`,
   },
 ];
 
@@ -327,17 +322,17 @@ function onExitMoveControls() {
 
 function onToggleSnap() {
   if (store.state.sceneMode === "snap") {
-    store.setSceneMode("select");
-    store.setContextMode("object-actions");
+    store.exitSnapAnchor();
   } else {
-    store.setSceneMode("snap");
-    store.setContextMode("snap-mode");
+    const id = store.state.selectedObjectIds[0];
+    if (id) {
+      store.startSnapAnchor(id);
+    }
   }
 }
 
 function onExitSnapMode() {
-  store.setSceneMode("select");
-  store.setContextMode("object-actions");
+  store.exitSnapAnchor();
 }
 
 function onSnapTargetSelected(targetId: string) {
@@ -423,11 +418,6 @@ function onKeyDown(e: KeyboardEvent) {
       if (store.state.selectedObjectIds.length > 0) {
         store.setContextMode("move-controls");
       }
-    }
-    if (e.key === "r" || e.key === "R") {
-      const active = document.activeElement?.tagName;
-      if (active === "INPUT" || active === "TEXTAREA") return;
-      store.setSceneMode("rotate");
     }
   }
 }
