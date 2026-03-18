@@ -1262,7 +1262,7 @@ export function createFetchHandler(database: Database, debugMode = false) {
     json(
       getAll<Omit<HistoryRow, "snapshot">>(
         database,
-        "SELECT id, project_id, action_type, action_label, created_at FROM project_history WHERE project_id = ? ORDER BY created_at ASC",
+        "SELECT id, project_id, action_type, action_label, created_at FROM project_history WHERE project_id = ? ORDER BY created_at ASC, rowid ASC",
         params.projectId,
       ),
     );
@@ -1293,7 +1293,7 @@ export function createFetchHandler(database: Database, debugMode = false) {
     database
       .query(
         `DELETE FROM project_history WHERE project_id = ? AND id NOT IN (
-          SELECT id FROM project_history WHERE project_id = ? ORDER BY created_at DESC LIMIT ?
+          SELECT id FROM project_history WHERE project_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?
         )`,
       )
       .run(params.projectId, params.projectId, MAX_HISTORY_ENTRIES);
