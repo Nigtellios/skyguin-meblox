@@ -476,6 +476,7 @@ export function useScene(canvas: HTMLCanvasElement) {
       rawX: number,
       rawZ: number,
     ) => { x: number; z: number } | null,
+    companionIds?: string[],
   ) {
     dragObjectId = objectId;
     isDragging.value = true;
@@ -497,6 +498,22 @@ export function useScene(canvas: HTMLCanvasElement) {
     );
     raycaster.ray.intersectPlane(dragPlane, planePoint);
     dragOffset.copy(mesh.position).sub(planePoint);
+
+    // Record the starting (X, Z) of the primary mesh and all companions so we
+    // can compute per-frame deltas and keep the group moving as a rigid unit.
+    const primaryOriginalX = mesh.position.x / SCALE;
+    const primaryOriginalZ = mesh.position.z / SCALE;
+
+    const companionOriginals = new Map<string, { x: number; z: number }>();
+    for (const cId of companionIds ?? []) {
+      const cMesh = objectMeshMap.get(cId);
+      if (cMesh) {
+        companionOriginals.set(cId, {
+          x: cMesh.position.x / SCALE,
+          z: cMesh.position.z / SCALE,
+        });
+      }
+    }
 
     let lastX = mesh.position.x / SCALE;
     let lastZ = mesh.position.z / SCALE;
@@ -531,6 +548,17 @@ export function useScene(canvas: HTMLCanvasElement) {
         }
         lastX = finalX;
         lastZ = finalZ;
+
+        // Move companion meshes by the same delta as the primary object.
+        const dx = finalX - primaryOriginalX;
+        const dz = finalZ - primaryOriginalZ;
+        for (const [cId, orig] of companionOriginals) {
+          const cMesh = objectMeshMap.get(cId);
+          if (cMesh) {
+            cMesh.position.x = (orig.x + dx) * SCALE;
+            cMesh.position.z = (orig.z + dz) * SCALE;
+          }
+        }
       }
     };
 

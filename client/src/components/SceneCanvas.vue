@@ -371,6 +371,23 @@ function onMouseDown(e: MouseEvent) {
 
   if (store.state.sceneMode === "move" && id) {
     store.selectObject(id, false);
+
+    // When the dragged object is a non-independent component member, collect
+    // all other members so they can be moved visually as a rigid group.
+    const draggedObj = store.state.objects.find((o) => o.id === id);
+    const companionIds: string[] = [];
+    if (draggedObj?.component_id) {
+      for (const other of store.state.objects) {
+        if (
+          other.id !== id &&
+          other.component_id === draggedObj.component_id &&
+          !other.is_independent
+        ) {
+          companionIds.push(other.id);
+        }
+      }
+    }
+
     scene.startDrag(
       e,
       id,
@@ -381,6 +398,7 @@ function onMouseDown(e: MouseEvent) {
         });
       },
       getSnapForDrag,
+      companionIds.length > 0 ? companionIds : undefined,
     );
   }
 }

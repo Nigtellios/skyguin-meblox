@@ -567,13 +567,15 @@ export function createFetchHandler(database: Database, debugMode = false) {
   const updateObject = async (req: Request, params: Record<string, string>) => {
     const body = await parseObjectBody<FurnitureObjectPayload>(req);
     const now = Date.now();
-    const existingObject = getOne<
-      Pick<FurnitureObjectRow, "material_template_id">
-    >(
+
+    // Fetch the full existing object so we can compute position deltas and
+    // propagate movement to component companions.
+    const existingObject = getOne<FurnitureObjectRow>(
       database,
-      "SELECT material_template_id FROM furniture_objects WHERE id = ?",
+      "SELECT * FROM furniture_objects WHERE id = ?",
       params.id,
     );
+
     const materialTemplateId =
       body.material_template_id !== undefined
         ? body.material_template_id
@@ -614,9 +616,59 @@ export function createFetchHandler(database: Database, debugMode = false) {
         params.id,
       );
 
+    // When a non-independent component member is moved, propagate the same
+    // position delta to all other non-independent members of the component so
+    // the group moves as one rigid unit.
+    const positionFieldChanged =
+      body.position_x !== undefined ||
+      body.position_y !== undefined ||
+      body.position_z !== undefined;
+
+    const companionIds: string[] = [];
+
+    if (
+      positionFieldChanged &&
+      existingObject?.component_id &&
+      !existingObject.is_independent
+    ) {
+      const dx =
+        (body.position_x ?? existingObject.position_x) -
+        existingObject.position_x;
+      const dy =
+        (body.position_y ?? existingObject.position_y) -
+        existingObject.position_y;
+      const dz =
+        (body.position_z ?? existingObject.position_z) -
+        existingObject.position_z;
+
+      if (dx !== 0 || dy !== 0 || dz !== 0) {
+        database
+          .query(
+            `UPDATE furniture_objects
+              SET position_x = position_x + ?,
+                  position_y = position_y + ?,
+                  position_z = position_z + ?,
+                  updated_at = ?
+              WHERE component_id = ? AND is_independent = 0 AND id != ?`,
+          )
+          .run(dx, dy, dz, now, existingObject.component_id, params.id);
+
+        // Collect companion IDs so their outgoing relations are also resolved.
+        const companions = getAll<Pick<FurnitureObjectRow, "id">>(
+          database,
+          "SELECT id FROM furniture_objects WHERE component_id = ? AND is_independent = 0 AND id != ?",
+          existingObject.component_id,
+          params.id,
+        );
+        for (const c of companions) {
+          companionIds.push(c.id);
+        }
+      }
+    }
+
     return json(
       (() => {
-        syncRelations(params.projectId, [params.id]);
+        syncRelations(params.projectId, [params.id, ...companionIds]);
         return getOne<FurnitureObjectRow>(
           database,
           "SELECT * FROM furniture_objects WHERE id = ?",
@@ -1194,11 +1246,13 @@ export function createFetchHandler(database: Database, debugMode = false) {
     return json({ success: true });
   };
 
+  const MAX_HISTORY_ENTRIES = 100;
+
   const getHistory = (_req: Request, params: Record<string, string>) =>
     json(
-      getAll<HistoryRow>(
+      getAll<Omit<HistoryRow, "snapshot">>(
         database,
-        "SELECT * FROM project_history WHERE project_id = ? ORDER BY created_at ASC",
+        "SELECT id, project_id, action_type, action_label, created_at FROM project_history WHERE project_id = ? ORDER BY created_at ASC",
         params.projectId,
       ),
     );
@@ -1225,10 +1279,19 @@ export function createFetchHandler(database: Database, debugMode = false) {
         now,
       );
 
+    // Trim history to the last MAX_HISTORY_ENTRIES entries for this project.
+    database
+      .query(
+        `DELETE FROM project_history WHERE project_id = ? AND id NOT IN (
+          SELECT id FROM project_history WHERE project_id = ? ORDER BY created_at DESC LIMIT ?
+        )`,
+      )
+      .run(params.projectId, params.projectId, MAX_HISTORY_ENTRIES);
+
     return json(
-      getOne<HistoryRow>(
+      getOne<Omit<HistoryRow, "snapshot">>(
         database,
-        "SELECT * FROM project_history WHERE id = ?",
+        "SELECT id, project_id, action_type, action_label, created_at FROM project_history WHERE id = ?",
         id,
       ),
       201,

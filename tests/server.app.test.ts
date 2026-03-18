@@ -411,4 +411,178 @@ describe("server api", () => {
     expect(layers).toHaveLength(2);
     expect(layers.map((layer) => layer.side).sort()).toEqual(["back", "front"]);
   });
+
+  test("limits history to 100 entries and GET history omits snapshot", async () => {
+    const projects = (await (
+      await request("/api/projects")
+    ).json()) as ProjectRow[];
+    const projectId = projects[0]?.id;
+    expect(projectId).toBeString();
+
+    // Insert 105 history entries
+    for (let i = 0; i < 105; i++) {
+      const res = await request(`/api/projects/${projectId}/history`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action_type: "test",
+          action_label: `Zmiana ${i + 1}`,
+          snapshot: JSON.stringify([{ id: `obj-${i}` }]),
+        }),
+      });
+      expect(res.status).toBe(201);
+    }
+
+    const historyRes = await request(`/api/projects/${projectId}/history`);
+    expect(historyRes.status).toBe(200);
+    const entries = (await historyRes.json()) as {
+      id: string;
+      action_label: string;
+      snapshot?: string;
+    }[];
+
+    // Must be capped at 100
+    expect(entries.length).toBe(100);
+
+    // snapshot must NOT be present in the list response
+    for (const entry of entries) {
+      expect(entry.snapshot).toBeUndefined();
+    }
+
+    // The 100 kept entries should be the most recent ones
+    const labels = entries.map((e) => e.action_label);
+    expect(labels).toContain("Zmiana 105");
+    expect(labels).not.toContain("Zmiana 1");
+  });
+
+  test("moves all non-independent component members when one is repositioned", async () => {
+    const projects = (await (
+      await request("/api/projects")
+    ).json()) as ProjectRow[];
+    const projectId = projects[0]?.id;
+    expect(projectId).toBeString();
+
+    const objA = (await (
+      await request(`/api/projects/${projectId}/objects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "A",
+          width: 18,
+          height: 720,
+          depth: 600,
+          position_x: 0,
+          position_z: 0,
+        }),
+      })
+    ).json()) as FurnitureObjectRow;
+
+    const objB = (await (
+      await request(`/api/projects/${projectId}/objects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "B",
+          width: 18,
+          height: 720,
+          depth: 600,
+          position_x: 100,
+          position_z: 0,
+        }),
+      })
+    ).json()) as FurnitureObjectRow;
+
+    // Create a component containing both objects
+    const compRes = await request(`/api/projects/${projectId}/components`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Grupa", object_ids: [objA.id, objB.id] }),
+    });
+    expect(compRes.status).toBe(201);
+
+    // Move object A by dx=50, dz=30
+    await request(`/api/projects/${projectId}/objects/${objA.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ position_x: 50, position_z: 30 }),
+    });
+
+    const objects = (await (
+      await request(`/api/projects/${projectId}/objects`)
+    ).json()) as FurnitureObjectRow[];
+
+    const updatedA = objects.find((o) => o.id === objA.id);
+    const updatedB = objects.find((o) => o.id === objB.id);
+
+    // A moved from 0 → 50 (dx=50), B started at 100 and should now be 150
+    expect(updatedA?.position_x).toBe(50);
+    expect(updatedA?.position_z).toBe(30);
+    expect(updatedB?.position_x).toBe(150); // 100 + 50
+    expect(updatedB?.position_z).toBe(30); // 0 + 30
+  });
+
+  test("independent component member position is not propagated to others", async () => {
+    const projects = (await (
+      await request("/api/projects")
+    ).json()) as ProjectRow[];
+    const projectId = projects[0]?.id;
+    expect(projectId).toBeString();
+
+    const objA = (await (
+      await request(`/api/projects/${projectId}/objects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "A",
+          width: 18,
+          height: 720,
+          depth: 600,
+          position_x: 0,
+          position_z: 0,
+        }),
+      })
+    ).json()) as FurnitureObjectRow;
+
+    const objB = (await (
+      await request(`/api/projects/${projectId}/objects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "B",
+          width: 18,
+          height: 720,
+          depth: 600,
+          position_x: 100,
+          position_z: 0,
+        }),
+      })
+    ).json()) as FurnitureObjectRow;
+
+    await request(`/api/projects/${projectId}/components`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Grupa", object_ids: [objA.id, objB.id] }),
+    });
+
+    // Mark A as independent
+    await request(`/api/projects/${projectId}/objects/${objA.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_independent: 1 }),
+    });
+
+    // Move A – should NOT move B because A is independent
+    await request(`/api/projects/${projectId}/objects/${objA.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ position_x: 50 }),
+    });
+
+    const objects = (await (
+      await request(`/api/projects/${projectId}/objects`)
+    ).json()) as FurnitureObjectRow[];
+
+    const updatedB = objects.find((o) => o.id === objB.id);
+    expect(updatedB?.position_x).toBe(100); // unchanged
+  });
 });
