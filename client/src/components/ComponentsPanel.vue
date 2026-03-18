@@ -16,8 +16,9 @@
       <!-- Info banner -->
       <div class="rounded-lg bg-slate-800/50 p-3 text-xs text-slate-500 mb-2">
         <div class="font-medium text-slate-400 mb-1">Czym są komponenty?</div>
-        Zaznacz kilka elementów i kliknij + aby połączyć je w komponent.
-        Zmiana parametrów jednego elementu zsynchronizuje wszystkie pozostałe
+        Zaznacz kilka elementów (kliknij pierwszy, potem <kbd class="rounded bg-slate-700 px-1 text-slate-300">Ctrl</kbd>+kliknij kolejne) i kliknij + aby połączyć je w komponent.
+        Pozycja i parametry są synchronizowane – elementy poruszają się razem jako jeden obiekt.
+        Zmiana wymiarów jednego elementu zsynchronizuje wszystkie pozostałe
         (chyba że mają tryb "edytuj osobno").
       </div>
 

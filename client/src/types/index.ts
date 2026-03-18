@@ -159,7 +159,7 @@ export type HistoryEntry = {
   project_id: string;
   action_type: string;
   action_label: string;
-  snapshot: string;
+  snapshot?: string;
   created_at: number;
 };
 

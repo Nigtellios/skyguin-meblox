@@ -94,6 +94,20 @@ export const useAppStore = defineStore("app", () => {
     );
   }
 
+  // Returns true only when the object is the SOURCE of at least one relation.
+  // Objects that only appear as targets in relations do not trigger downstream
+  // updates via syncRelations when their own position changes.
+  function objectHasOutgoingRelations(id: string) {
+    return state.relations.some((relation) => relation.source_object_id === id);
+  }
+
+  // Returns true when the object belongs to a component and is not marked
+  // independent (so moving it should move all other members too).
+  function objectIsNonIndependentComponentMember(id: string) {
+    const obj = state.objects.find((o) => o.id === id);
+    return !!(obj?.component_id && !obj?.is_independent);
+  }
+
   async function loadProjects() {
     try {
       state.loading = true;
@@ -244,8 +258,6 @@ export const useAppStore = defineStore("app", () => {
     await recordHistory("update_object", label);
   }
 
-  let pendingRelationsReloadTimeout: number | null = null;
-
   async function updateObjectPosition(
     id: string,
     pos: {
@@ -259,16 +271,20 @@ export const useAppStore = defineStore("app", () => {
     const updated = await api.objects.update(state.currentProjectId, id, pos);
     const idx = state.objects.findIndex((o) => o.id === id);
     if (idx >= 0) state.objects[idx] = updated;
-    if (objectHasRelations(id)) {
-      if (pendingRelationsReloadTimeout !== null) {
-        clearTimeout(pendingRelationsReloadTimeout);
-      }
-      pendingRelationsReloadTimeout = window.setTimeout(async () => {
-        if (!state.currentProjectId) return;
-        await loadObjects();
-        pendingRelationsReloadTimeout = null;
-      }, 100);
+
+    // Reload all objects when:
+    // 1. The moved object is the SOURCE of outgoing relations (syncRelations ran
+    //    on the server and may have moved other objects).
+    // 2. The object is a non-independent component member (the server propagated
+    //    the position delta to all other members).
+    const needsReload =
+      objectHasOutgoingRelations(id) ||
+      objectIsNonIndependentComponentMember(id);
+
+    if (needsReload) {
+      await loadObjects();
     }
+
     const obj = state.objects.find((o) => o.id === id);
     const label =
       pos.rotation_y !== undefined
@@ -311,7 +327,10 @@ export const useAppStore = defineStore("app", () => {
     }
 
     if (state.selectedObjectIds.length > 0) {
-      if (!multiSelect) {
+      // When the user is in the components panel they are likely selecting
+      // objects to form a component – keep the panel visible so the create
+      // button stays accessible.
+      if (!multiSelect && state.activePanel !== "components") {
         state.activePanel = "object-props";
       }
       if (state.contextMode === "none") {

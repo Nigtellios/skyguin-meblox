@@ -3,7 +3,7 @@
     <canvas
       ref="canvasRef"
       class="block h-full w-full"
-      :class="isCrosshairMode ? 'cursor-crosshair' : ''"
+      :class="shouldShowHoverPreview ? 'cursor-crosshair' : ''"
       @mousedown="onMouseDown"
       @mousemove="onMouseMove"
       @mouseleave="onMouseLeave"
@@ -176,7 +176,7 @@ const isAttachMode = computed(
     store.state.activePanel === "relations" &&
     store.state.relationEditorMode === "attach",
 );
-const isCrosshairMode = computed(
+const shouldShowHoverPreview = computed(
   () => store.state.sceneMode === "snap" || isAttachMode.value,
 );
 const showRelationOverlay = computed(
@@ -222,9 +222,9 @@ watch(
 );
 
 watch(
-  () => store.state.sceneMode,
-  (newMode) => {
-    if (newMode !== "snap") {
+  () => shouldShowHoverPreview.value,
+  (enabled) => {
+    if (!enabled) {
       scene?.clearHoverHighlight();
     }
   },
@@ -365,12 +365,29 @@ function onMouseDown(e: MouseEvent) {
   if (!scene) return;
   if (e.button !== 0) return;
 
-  if (isCrosshairMode.value) return;
+  if (shouldShowHoverPreview.value) return;
 
   const id = scene.pickObject(e);
 
   if (store.state.sceneMode === "move" && id) {
     store.selectObject(id, false);
+
+    // When the dragged object is a non-independent component member, collect
+    // all other members so they can be moved visually as a rigid group.
+    const draggedObj = store.state.objects.find((o) => o.id === id);
+    const companionIds: string[] = [];
+    if (draggedObj?.component_id && !draggedObj.is_independent) {
+      for (const other of store.state.objects) {
+        if (
+          other.id !== id &&
+          other.component_id === draggedObj.component_id &&
+          !other.is_independent
+        ) {
+          companionIds.push(other.id);
+        }
+      }
+    }
+
     scene.startDrag(
       e,
       id,
@@ -381,16 +398,22 @@ function onMouseDown(e: MouseEvent) {
         });
       },
       getSnapForDrag,
+      companionIds.length > 0 ? companionIds : undefined,
     );
   }
 }
 
 function onMouseMove(e: MouseEvent) {
   if (!scene) return;
-  if (store.state.sceneMode !== "snap") return;
+  if (!shouldShowHoverPreview.value) return;
 
   const hit = scene.pickObjectWithFace(e);
-  if (hit && !store.state.selectedObjectIds.includes(hit.id)) {
+  const isBlockedTarget =
+    (store.state.relationAttachSourceId !== null &&
+      hit?.id === store.state.relationAttachSourceId) ||
+    (hit ? store.state.selectedObjectIds.includes(hit.id) : false);
+
+  if (hit && !isBlockedTarget) {
     scene.setHoverHighlight(hit.id, hit.faceNormal);
   } else {
     scene.clearHoverHighlight();
