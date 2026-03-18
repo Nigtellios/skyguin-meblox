@@ -680,14 +680,12 @@ export const useAppStore = defineStore("app", () => {
     // Already in the same (non-null) component — nothing to do.
     if (compAId !== null && compAId === compBId) return;
 
-    // Collect all non-independent members from both groups (or the objects
-    // themselves when they are not part of a component yet).
+    // Collect all members from both groups (or the objects themselves when
+    // they are not part of a component yet), regardless of is_independent.
     const memberIds = new Set<string>();
     for (const o of state.objects) {
-      if (!o.is_independent) {
-        if (compAId && o.component_id === compAId) memberIds.add(o.id);
-        if (compBId && o.component_id === compBId) memberIds.add(o.id);
-      }
+      if (compAId && o.component_id === compAId) memberIds.add(o.id);
+      if (compBId && o.component_id === compBId) memberIds.add(o.id);
     }
     if (!compAId) memberIds.add(idA);
     if (!compBId) memberIds.add(idB);
