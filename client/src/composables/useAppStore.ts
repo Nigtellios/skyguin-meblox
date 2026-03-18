@@ -272,6 +272,7 @@ export const useAppStore = defineStore("app", () => {
       position_z?: number;
       rotation_y?: number;
     },
+    options?: { suppressHistory?: boolean },
   ) {
     if (!state.currentProjectId) return;
     const updated = await api.objects.update(state.currentProjectId, id, pos);
@@ -291,12 +292,14 @@ export const useAppStore = defineStore("app", () => {
       await loadObjects();
     }
 
-    const obj = state.objects.find((o) => o.id === id);
-    const label =
-      pos.rotation_y !== undefined
-        ? `Obrócono: ${obj?.name ?? id}`
-        : `Przesunięto: ${obj?.name ?? id}`;
-    await recordHistory("move_object", label);
+    if (!options?.suppressHistory) {
+      const obj = state.objects.find((o) => o.id === id);
+      const label =
+        pos.rotation_y !== undefined
+          ? `Obrócono: ${obj?.name ?? id}`
+          : `Przesunięto: ${obj?.name ?? id}`;
+      await recordHistory("move_object", label);
+    }
   }
 
   async function deleteObject(id: string) {
@@ -650,7 +653,7 @@ export const useAppStore = defineStore("app", () => {
     );
 
     try {
-      await updateObjectPosition(sourceId, newPos);
+      await updateObjectPosition(sourceId, newPos, { suppressHistory: true });
       await linkObjectsTogether(sourceId, targetObjectId);
       await recordHistory(
         "snap_attach",
