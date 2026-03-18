@@ -687,6 +687,15 @@ export const useAppStore = defineStore("app", () => {
     if (!compBId) memberIds.add(idB);
 
     await createComponent(`${objA.name}+${objB.name}`, Array.from(memberIds));
+
+    // After merging, delete the now-empty original component groups (if any)
+    // to avoid leaving orphan/empty components in state and the DB.
+    if (compAId && compAId !== compBId) {
+      await deleteComponent(compAId);
+    }
+    if (compBId && compBId !== compAId) {
+      await deleteComponent(compBId);
+    }
   }
 
   function exitSnapAnchor() {
