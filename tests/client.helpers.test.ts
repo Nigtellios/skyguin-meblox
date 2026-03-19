@@ -194,7 +194,10 @@ describe("client helpers", () => {
 
     const rightFace = anchors[0];
     const rightMarker = anchorMarkerWorldPos(source, rightFace, 14);
-    expect(rightMarker.x).toBeCloseTo(source.position_x + source.width / 2 + 14, 6);
+    expect(rightMarker.x).toBeCloseTo(
+      source.position_x + source.width / 2 + 14,
+      6,
+    );
     expect(rightMarker.y).toBeCloseTo(source.height / 2, 6);
 
     const snapped = computeSnapPosition(source, anchors[0], target, anchors[1]);

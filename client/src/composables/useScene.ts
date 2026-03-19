@@ -391,7 +391,10 @@ export function useScene(canvas: HTMLCanvasElement) {
 
     updatePointerFromMouse(event);
     raycaster.setFromCamera(pointer, camera);
-    const intersects = raycaster.intersectObjects(snapAnchorGroup.children, true);
+    const intersects = raycaster.intersectObjects(
+      snapAnchorGroup.children,
+      true,
+    );
 
     for (const hit of intersects) {
       const marker = hit.object as THREE.Object3D;
