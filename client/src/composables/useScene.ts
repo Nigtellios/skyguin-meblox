@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { onUnmounted, ref } from "vue";
+import type { SnapAnchorType } from "../lib/snapAnchors";
 import type { FurnitureObject, GridConfig } from "../types";
 
 // Scale factor: 1 Three.js unit = 1mm
@@ -8,6 +9,19 @@ const SCALE = 0.001; // mm → meters (Three.js world units)
 const NDC_TO_SCREEN_SCALE = 0.5;
 const NDC_TO_SCREEN_OFFSET = 0.5;
 const FACE_HIGHLIGHT_OFFSET = 0.001; // small offset to avoid z-fighting with the face mesh
+const SNAP_FACE_MARKER_RADIUS = 0.01;
+const SNAP_EDGE_MARKER_RADIUS = 0.012;
+const SNAP_SELECTED_SCALE = 1.35;
+
+type SceneSnapAnchorMarker = {
+  objectId: string;
+  anchorIndex: number;
+  type: SnapAnchorType;
+  x: number;
+  y: number;
+  z: number;
+  selected: boolean;
+};
 
 export function useScene(canvas: HTMLCanvasElement) {
   const selectedIds = ref<Set<string>>(new Set());
@@ -28,6 +42,20 @@ export function useScene(canvas: HTMLCanvasElement) {
   // ---- Scene ----
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x1a1a2e, 0.002);
+
+  const snapAnchorGroup = new THREE.Group();
+  snapAnchorGroup.name = "__snap_anchors__";
+  scene.add(snapAnchorGroup);
+
+  const snapFaceGeometry = new THREE.SphereGeometry(
+    SNAP_FACE_MARKER_RADIUS,
+    18,
+    18,
+  );
+  const snapEdgeGeometry = new THREE.OctahedronGeometry(
+    SNAP_EDGE_MARKER_RADIUS,
+    0,
+  );
 
   // ---- Camera ----
   const camera = new THREE.PerspectiveCamera(
@@ -271,11 +299,14 @@ export function useScene(canvas: HTMLCanvasElement) {
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
 
-  function pickObject(event: MouseEvent): string | null {
+  function updatePointerFromMouse(event: MouseEvent) {
     const rect = canvas.getBoundingClientRect();
     pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  }
 
+  function pickObject(event: MouseEvent): string | null {
+    updatePointerFromMouse(event);
     raycaster.setFromCamera(pointer, camera);
     const meshes = Array.from(objectMeshMap.values());
     const intersects = raycaster.intersectObjects(meshes, false);
@@ -290,10 +321,7 @@ export function useScene(canvas: HTMLCanvasElement) {
   function pickObjectWithFace(
     event: MouseEvent,
   ): { id: string; faceNormal: THREE.Vector3 } | null {
-    const rect = canvas.getBoundingClientRect();
-    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
+    updatePointerFromMouse(event);
     raycaster.setFromCamera(pointer, camera);
     const meshes = Array.from(objectMeshMap.values());
     const intersects = raycaster.intersectObjects(meshes, false);
@@ -307,6 +335,73 @@ export function useScene(canvas: HTMLCanvasElement) {
         return { id, faceNormal };
       }
     }
+    return null;
+  }
+
+  function clearSnapAnchors() {
+    while (snapAnchorGroup.children.length > 0) {
+      const child = snapAnchorGroup.children[0] as THREE.Mesh;
+      snapAnchorGroup.remove(child);
+      const material = child.material;
+      if (Array.isArray(material)) {
+        for (const item of material) {
+          item.dispose();
+        }
+      } else {
+        material.dispose();
+      }
+    }
+  }
+
+  function setSnapAnchors(markers: SceneSnapAnchorMarker[]) {
+    clearSnapAnchors();
+
+    for (const marker of markers) {
+      const material = new THREE.MeshBasicMaterial({
+        color: marker.type === "face" ? 0xef4444 : 0x3b82f6,
+        transparent: true,
+        opacity: marker.selected ? 1 : 0.92,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(
+        marker.type === "face" ? snapFaceGeometry : snapEdgeGeometry,
+        material,
+      );
+      mesh.position.set(marker.x, marker.y, marker.z);
+      mesh.renderOrder = 999;
+      if (marker.selected) {
+        mesh.scale.setScalar(SNAP_SELECTED_SCALE);
+      }
+      mesh.userData = {
+        kind: "snap-anchor",
+        objectId: marker.objectId,
+        anchorIndex: marker.anchorIndex,
+      };
+      snapAnchorGroup.add(mesh);
+    }
+  }
+
+  function pickSnapAnchor(
+    event: MouseEvent,
+  ): { objectId: string; anchorIndex: number } | null {
+    if (snapAnchorGroup.children.length === 0) {
+      return null;
+    }
+
+    updatePointerFromMouse(event);
+    raycaster.setFromCamera(pointer, camera);
+    const intersects = raycaster.intersectObjects(snapAnchorGroup.children, true);
+
+    for (const hit of intersects) {
+      const marker = hit.object as THREE.Object3D;
+      const objectId = marker.userData.objectId as string | undefined;
+      const anchorIndex = marker.userData.anchorIndex as number | undefined;
+      if (objectId && typeof anchorIndex === "number") {
+        return { objectId, anchorIndex };
+      }
+    }
+
     return null;
   }
 
@@ -509,10 +604,7 @@ export function useScene(canvas: HTMLCanvasElement) {
     const mesh = objectMeshMap.get(objectId);
     if (!mesh) return;
 
-    const rect = canvas.getBoundingClientRect();
-    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
+    updatePointerFromMouse(event);
     raycaster.setFromCamera(pointer, camera);
     const planePoint = new THREE.Vector3();
     dragPlane.set(
@@ -543,9 +635,7 @@ export function useScene(canvas: HTMLCanvasElement) {
     let lastZ = mesh.position.z / SCALE;
 
     const handleMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      updatePointerFromMouse(e);
       raycaster.setFromCamera(pointer, camera);
       const hitPoint = new THREE.Vector3();
       raycaster.ray.intersectPlane(dragPlane, hitPoint);
@@ -629,6 +719,9 @@ export function useScene(canvas: HTMLCanvasElement) {
     controls.dispose();
     renderer.dispose();
     clearHoverHighlight();
+    clearSnapAnchors();
+    snapFaceGeometry.dispose();
+    snapEdgeGeometry.dispose();
     for (const [id] of objectMeshMap) removeObject(id);
     objectMeshMap.clear();
   }
@@ -649,6 +742,9 @@ export function useScene(canvas: HTMLCanvasElement) {
     pickObjectWithFace,
     setHoverHighlight,
     clearHoverHighlight,
+    setSnapAnchors,
+    clearSnapAnchors,
+    pickSnapAnchor,
     projectObjectToScreen,
     projectWorldPointToScreen,
     startDrag,

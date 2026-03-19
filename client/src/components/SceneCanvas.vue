@@ -75,47 +75,6 @@
       Źródło attach: {{ attachSourceOverlay.name }}
     </div>
 
-    <!-- Snap-anchor dot overlay -->
-    <svg
-      v-if="snapAnchorDots.length > 0"
-      class="pointer-events-none absolute inset-0 z-30"
-      aria-hidden="true"
-    >
-      <g v-for="dot in snapAnchorDots" :key="`${dot.objectId}-${dot.anchorIndex}`">
-        <!-- Selection ring -->
-        <circle
-          v-if="dot.selected"
-          :cx="dot.x"
-          :cy="dot.y"
-          r="10"
-          fill="none"
-          :stroke="dot.type === 'face' ? '#ef4444' : '#3b82f6'"
-          stroke-width="2"
-          opacity="0.9"
-        />
-        <!-- Face anchor: circle -->
-        <circle
-          v-if="dot.type === 'face'"
-          :cx="dot.x"
-          :cy="dot.y"
-          :r="dot.selected ? 7 : 5"
-          fill="#ef4444"
-          :opacity="dot.hovered ? 1 : 0.8"
-          stroke="white"
-          stroke-width="1.5"
-        />
-        <!-- Edge anchor: diamond (rotated square) -->
-        <polygon
-          v-else
-          :points="`${dot.x},${dot.y - (dot.selected ? 7 : 5)} ${dot.x + (dot.selected ? 7 : 5)},${dot.y} ${dot.x},${dot.y + (dot.selected ? 7 : 5)} ${dot.x - (dot.selected ? 7 : 5)},${dot.y}`"
-          fill="#3b82f6"
-          :opacity="dot.hovered ? 1 : 0.8"
-          stroke="white"
-          stroke-width="1.5"
-        />
-      </g>
-    </svg>
-
     <!-- Context menu -->
     <Teleport to="body">
       <div
@@ -179,7 +138,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useAppStore } from "../composables/useAppStore";
 import { useScene } from "../composables/useScene";
 import { estimateRelationLabelWidth } from "../lib/relationsBuilder";
-import { anchorWorldPos, getObjectSnapAnchors } from "../lib/snapAnchors";
+import { anchorMarkerWorldPos, getObjectSnapAnchors } from "../lib/snapAnchors";
 import {
   RELATION_FIELD_LABELS,
   RELATION_MODE_LABELS,
@@ -188,7 +147,6 @@ import {
 import AddObjectDialog from "./AddObjectDialog.vue";
 
 const ATTACH_SOURCE_BADGE_Y_OFFSET = "-150%";
-const ANCHOR_CLICK_RADIUS_PX = 12;
 
 const emit = defineEmits<{
   "snap-target-selected": [targetId: string];
@@ -199,7 +157,6 @@ const canvasRef = ref<HTMLCanvasElement | null>(null);
 const store = useAppStore();
 let scene: ReturnType<typeof useScene> | null = null;
 let overlayFrame = 0;
-let snapAnchorFrame = 0;
 
 const showAddDialog = ref(false);
 const addPosition = ref({ x: 0, z: 0 });
@@ -217,17 +174,6 @@ const attachSourceOverlay = ref<{
   y: number;
   name: string;
 } | null>(null);
-
-type AnchorDot = {
-  x: number;
-  y: number;
-  type: "face" | "edge";
-  objectId: string;
-  anchorIndex: number;
-  selected: boolean;
-  hovered: boolean;
-};
-const snapAnchorDots = ref<AnchorDot[]>([]);
 
 const contextMenu = ref({
   visible: false,
@@ -257,6 +203,7 @@ onMounted(() => {
 
   syncScene();
   updateRelationOverlay();
+  updateSnapAnchorMarkers();
 
   document.addEventListener("click", closeContextMenu);
 });
@@ -264,7 +211,7 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener("click", closeContextMenu);
   cancelAnimationFrame(overlayFrame);
-  cancelAnimationFrame(snapAnchorFrame);
+  scene?.clearSnapAnchors();
 });
 
 function syncScene() {
@@ -311,16 +258,15 @@ watch(
   { deep: true },
 );
 
-// Start/stop the snap-anchor overlay loop
 watch(
-  () => store.state.snapPhase,
-  (phase) => {
-    if (phase !== "none") {
-      startSnapAnchorLoop();
-    } else {
-      stopSnapAnchorLoop();
-    }
-  },
+  () => [
+    store.state.snapPhase,
+    store.state.snapSourceObjectId,
+    store.state.snapSourceAnchorIndex,
+    store.state.objects,
+  ],
+  () => updateSnapAnchorMarkers(),
+  { deep: true },
 );
 
 function updateRelationOverlay() {
@@ -384,78 +330,45 @@ function updateRelationOverlay() {
   overlayFrame = requestAnimationFrame(next);
 }
 
-// ---- Snap-anchor dot overlay ----
+// ---- Snap-anchor markers rendered directly in Three.js ----
 
-function buildSnapAnchorDots(): AnchorDot[] {
-  if (!scene || store.state.snapPhase === "none") return [];
+function updateSnapAnchorMarkers() {
+  if (!scene || store.state.snapPhase === "none") {
+    scene?.clearSnapAnchors();
+    return;
+  }
 
   const phase = store.state.snapPhase;
   const sourceId = store.state.snapSourceObjectId;
-  const dots: AnchorDot[] = [];
 
-  for (const obj of store.state.objects) {
-    if (phase === "select-source" && obj.id !== sourceId) continue;
-    if (phase === "select-target" && obj.id === sourceId) continue;
+  const markers = store.state.objects.flatMap((obj) => {
+    if (phase === "select-source" && obj.id !== sourceId) return [];
 
-    const anchors = getObjectSnapAnchors(obj);
-    for (const anchor of anchors) {
-      const wp = anchorWorldPos(obj, anchor);
-      const screen = scene.projectWorldPointToScreen(wp.x, wp.y, wp.z);
-      if (!screen) continue;
+    const anchors = getObjectSnapAnchors(obj).filter((anchor) => {
+      if (phase !== "select-target" || obj.id !== sourceId) {
+        return true;
+      }
 
-      dots.push({
-        x: screen.x,
-        y: screen.y,
+      return anchor.index === store.state.snapSourceAnchorIndex;
+    });
+
+    return anchors.map((anchor) => {
+      const markerPos = anchorMarkerWorldPos(obj, anchor);
+      return {
+        x: markerPos.x * 0.001,
+        y: markerPos.y * 0.001,
+        z: markerPos.z * 0.001,
         type: anchor.type,
         objectId: obj.id,
         anchorIndex: anchor.index,
         selected:
           obj.id === sourceId &&
           anchor.index === store.state.snapSourceAnchorIndex,
-        hovered: false,
-      });
-    }
-  }
-  return dots;
-}
+      };
+    });
+  });
 
-function startSnapAnchorLoop() {
-  cancelAnimationFrame(snapAnchorFrame);
-  const tick = () => {
-    snapAnchorDots.value = buildSnapAnchorDots();
-    if (store.state.snapPhase !== "none") {
-      snapAnchorFrame = requestAnimationFrame(tick);
-    }
-  };
-  snapAnchorFrame = requestAnimationFrame(tick);
-}
-
-function stopSnapAnchorLoop() {
-  cancelAnimationFrame(snapAnchorFrame);
-  snapAnchorDots.value = [];
-}
-
-/** Returns the nearest anchor dot within ANCHOR_CLICK_RADIUS_PX of the mouse. */
-function findClickedAnchorDot(e: MouseEvent): AnchorDot | null {
-  const canvas = canvasRef.value;
-  if (!canvas) return null;
-  const rect = canvas.getBoundingClientRect();
-  const cx = e.clientX - rect.left;
-  const cy = e.clientY - rect.top;
-
-  let nearest: AnchorDot | null = null;
-  let nearestDist = ANCHOR_CLICK_RADIUS_PX;
-
-  for (const dot of snapAnchorDots.value) {
-    const dx = dot.x - cx;
-    const dy = dot.y - cy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < nearestDist) {
-      nearestDist = dist;
-      nearest = dot;
-    }
-  }
-  return nearest;
+  scene.setSnapAnchors(markers);
 }
 
 const DRAG_SNAP_THRESHOLD_MM = 30;
@@ -591,19 +504,18 @@ async function onClick(e: MouseEvent) {
   // ---- Snap-anchor click handling ----
   if (isSnapAnchorMode.value) {
     const phase = store.state.snapPhase;
+    const marker = scene.pickSnapAnchor(e);
 
     if (phase === "select-source") {
-      const dot = findClickedAnchorDot(e);
-      if (dot && dot.objectId === store.state.snapSourceObjectId) {
-        store.selectSnapSourceAnchor(dot.anchorIndex);
+      if (marker && marker.objectId === store.state.snapSourceObjectId) {
+        store.selectSnapSourceAnchor(marker.anchorIndex);
       }
       return;
     }
 
     if (phase === "select-target") {
-      const dot = findClickedAnchorDot(e);
-      if (dot && dot.objectId !== store.state.snapSourceObjectId) {
-        await store.performSnap(dot.objectId, dot.anchorIndex);
+      if (marker && marker.objectId !== store.state.snapSourceObjectId) {
+        await store.performSnap(marker.objectId, marker.anchorIndex);
       }
       return;
     }

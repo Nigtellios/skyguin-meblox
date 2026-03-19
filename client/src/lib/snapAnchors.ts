@@ -71,6 +71,41 @@ export function anchorWorldPos(
 }
 
 /**
+ * World position used only for rendering a visible snap marker.
+ * The marker is pushed slightly away from the object surface/edge so it does
+ * not visually merge with the furniture mesh.
+ */
+export function anchorMarkerWorldPos(
+  obj: FurnitureObject,
+  anchor: SnapAnchor,
+  offsetMm = 14,
+): { x: number; y: number; z: number } {
+  const base = anchorWorldPos(obj, anchor);
+  const localLength = Math.hypot(anchor.lx, anchor.ly, anchor.lz);
+
+  if (localLength === 0 || offsetMm === 0) {
+    return base;
+  }
+
+  const ry = obj.rotation_y ?? 0;
+  const cosY = Math.cos(ry);
+  const sinY = Math.sin(ry);
+
+  const nx = anchor.lx / localLength;
+  const ny = anchor.ly / localLength;
+  const nz = anchor.lz / localLength;
+
+  const rotatedNx = nx * cosY - nz * sinY;
+  const rotatedNz = nx * sinY + nz * cosY;
+
+  return {
+    x: base.x + rotatedNx * offsetMm,
+    y: base.y + ny * offsetMm,
+    z: base.z + rotatedNz * offsetMm,
+  };
+}
+
+/**
  * Computes the new position_x/y/z for `source` so that `sourceAnchor`
  * coincides with `targetAnchor` on `target`.
  */

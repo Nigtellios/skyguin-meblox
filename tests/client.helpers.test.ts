@@ -16,6 +16,11 @@ import {
   getRelationFieldKind,
 } from "../client/src/lib/relationsBuilder";
 import {
+  anchorMarkerWorldPos,
+  computeSnapPosition,
+  getObjectSnapAnchors,
+} from "../client/src/lib/snapAnchors";
+import {
   FurnitureObjectSchema,
   MaterialTemplateSchema,
   ObjectRelationSchema,
@@ -154,5 +159,49 @@ describe("client helpers", () => {
     const start = getFieldAnchorPoint(layout.a, 0, "right");
     const end = getFieldAnchorPoint(layout.b, 1, "left");
     expect(createBuilderEdgePath(start, end)).toContain("C");
+  });
+
+  test("snap anchors expose visible markers and close gaps between objects", () => {
+    const source = {
+      id: "source",
+      project_id: "p",
+      name: "Źródło",
+      width: 18,
+      height: 720,
+      depth: 600,
+      position_x: 0,
+      position_y: 0,
+      position_z: 0,
+      rotation_y: 0,
+      color: "#8B7355",
+      material_template_id: null,
+      component_id: null,
+      is_independent: 0,
+      created_at: 1,
+      updated_at: 1,
+    };
+    const target = {
+      ...source,
+      id: "target",
+      name: "Cel",
+      position_x: 250,
+    };
+
+    const anchors = getObjectSnapAnchors(source);
+    expect(anchors).toHaveLength(18);
+    expect(anchors.filter((anchor) => anchor.type === "face")).toHaveLength(6);
+    expect(anchors.filter((anchor) => anchor.type === "edge")).toHaveLength(12);
+
+    const rightFace = anchors[0];
+    const rightMarker = anchorMarkerWorldPos(source, rightFace, 14);
+    expect(rightMarker.x).toBeCloseTo(source.position_x + source.width / 2 + 14, 6);
+    expect(rightMarker.y).toBeCloseTo(source.height / 2, 6);
+
+    const snapped = computeSnapPosition(source, anchors[0], target, anchors[1]);
+    expect(snapped.position_x + source.width / 2).toBeCloseTo(
+      target.position_x - target.width / 2,
+      6,
+    );
+    expect(snapped.position_z).toBeCloseTo(target.position_z, 6);
   });
 });
