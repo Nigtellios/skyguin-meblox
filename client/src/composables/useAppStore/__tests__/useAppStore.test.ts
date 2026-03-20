@@ -100,8 +100,7 @@ describe("useAppStore – move history debounce", () => {
 
     // Mock position update; return the same object with updated coordinates.
     spyOn(api.objects, "update").mockImplementation(
-      async (_projectId, _id, pos) =>
-        ({ ...obj, ...pos }) as FurnitureObject,
+      async (_projectId, _id, pos) => ({ ...obj, ...pos }) as FurnitureObject,
     );
 
     const historyAddSpy = spyOn(api.history, "add").mockResolvedValue(
@@ -227,10 +226,7 @@ describe("useAppStore – undoHistory / redoHistory", () => {
   });
 
   test("undoHistory keeps historyCurrentIndex unchanged on API error", async () => {
-    const entries = [
-      makeHistoryEntry("h0", 0),
-      makeHistoryEntry("h1", 1),
-    ];
+    const entries = [makeHistoryEntry("h0", 0), makeHistoryEntry("h1", 1)];
     const store = await setupStore({ historyEntries: entries });
     expect(store.state.historyCurrentIndex).toBe(1);
 
