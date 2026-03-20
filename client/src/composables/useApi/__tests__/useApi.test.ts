@@ -45,6 +45,7 @@ describe("useApi composable", () => {
     expect(typeof api.history.list).toBe("function");
     expect(typeof api.history.add).toBe("function");
     expect(typeof api.history.revert).toBe("function");
+    expect(typeof api.history.navigate).toBe("function");
   });
 
   test("api methods are callable and return Promise", () => {

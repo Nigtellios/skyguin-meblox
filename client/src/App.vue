@@ -359,6 +359,23 @@ function onKeyDown(e: KeyboardEvent) {
     return;
   }
 
+  // Ctrl+Z: undo
+  if (ctrl && (e.key === "z" || e.key === "Z") && !e.shiftKey) {
+    e.preventDefault();
+    store.undoHistory();
+    return;
+  }
+
+  // Ctrl+Y or Ctrl+Shift+Z: redo
+  if (
+    (ctrl && (e.key === "y" || e.key === "Y")) ||
+    (ctrl && e.shiftKey && (e.key === "z" || e.key === "Z"))
+  ) {
+    e.preventDefault();
+    store.redoHistory();
+    return;
+  }
+
   // Ctrl+V: paste
   if (ctrl && e.key === "v") {
     store.pasteClipboard();

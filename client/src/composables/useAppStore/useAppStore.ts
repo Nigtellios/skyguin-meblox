@@ -41,6 +41,7 @@ function createInitialState() {
 
     // History
     historyEntries: [] as HistoryEntry[],
+    historyCurrentIndex: -1 as number,
 
     // UI
     activePanel: "none" as AppPanel,
@@ -83,6 +84,24 @@ function createInitialState() {
 
 export const useAppStore = defineStore("app", () => {
   const state = reactive(createInitialState());
+
+  // ---- Pending move history debounce ----
+  const MOVE_DEBOUNCE_MS = 800;
+  let _pendingMoveTimer: ReturnType<typeof setTimeout> | null = null;
+  let _pendingMoveLabel = "";
+  let _pendingMoveType = "";
+
+  async function _flushPendingMoveHistory() {
+    if (_pendingMoveTimer !== null) {
+      clearTimeout(_pendingMoveTimer);
+      _pendingMoveTimer = null;
+      const type = _pendingMoveType;
+      const label = _pendingMoveLabel;
+      _pendingMoveType = "";
+      _pendingMoveLabel = "";
+      await recordHistory(type, label);
+    }
+  }
 
   const currentProject = computed(
     () => state.projects.find((p) => p.id === state.currentProjectId) ?? null,
@@ -190,13 +209,31 @@ export const useAppStore = defineStore("app", () => {
   async function recordHistory(actionType: string, label: string) {
     if (!state.currentProjectId) return;
     const snapshot = JSON.stringify(state.objects);
+
+    // When we have navigated backwards (undo), trim all future entries before
+    // recording the new state so that the history stays linear.
+    let trim_after_id: string | undefined;
+    if (
+      state.historyCurrentIndex >= 0 &&
+      state.historyCurrentIndex < state.historyEntries.length - 1
+    ) {
+      trim_after_id = state.historyEntries[state.historyCurrentIndex].id;
+      // Trim locally to keep client in sync
+      state.historyEntries = state.historyEntries.slice(
+        0,
+        state.historyCurrentIndex + 1,
+      );
+    }
+
     try {
       const entry = await api.history.add(state.currentProjectId, {
         action_type: actionType,
         action_label: label,
         snapshot,
+        trim_after_id,
       });
       state.historyEntries.push(entry);
+      state.historyCurrentIndex = state.historyEntries.length - 1;
     } catch {
       // History recording is best-effort.
     }
@@ -204,6 +241,7 @@ export const useAppStore = defineStore("app", () => {
 
   async function createObject(data: Partial<FurnitureObject>) {
     if (!state.currentProjectId) return;
+    await _flushPendingMoveHistory();
     const obj = await api.objects.create(state.currentProjectId, data);
     state.objects.push(obj);
     selectObject(obj.id, false);
@@ -215,6 +253,7 @@ export const useAppStore = defineStore("app", () => {
     if (!state.currentProjectId) return;
     const obj = state.objects.find((o) => o.id === id);
     if (!obj) return;
+    await _flushPendingMoveHistory();
 
     const updated = await api.objects.update(state.currentProjectId, id, data);
     const idx = state.objects.findIndex((o) => o.id === id);
@@ -301,12 +340,28 @@ export const useAppStore = defineStore("app", () => {
         pos.rotation_y !== undefined
           ? `Obrócono: ${obj?.name ?? id}`
           : `Przesunięto: ${obj?.name ?? id}`;
-      await recordHistory("move_object", label);
+      const actionType = "move_object";
+
+      // Debounce: group rapid consecutive moves into a single history entry
+      if (_pendingMoveTimer !== null) {
+        clearTimeout(_pendingMoveTimer);
+      }
+      _pendingMoveLabel = label;
+      _pendingMoveType = actionType;
+      _pendingMoveTimer = setTimeout(() => {
+        _pendingMoveTimer = null;
+        const pendingLabel = _pendingMoveLabel;
+        const pendingType = _pendingMoveType;
+        _pendingMoveLabel = "";
+        _pendingMoveType = "";
+        recordHistory(pendingType, pendingLabel);
+      }, MOVE_DEBOUNCE_MS);
     }
   }
 
   async function deleteObject(id: string) {
     if (!state.currentProjectId) return;
+    await _flushPendingMoveHistory();
     const obj = state.objects.find((o) => o.id === id);
     await api.objects.delete(state.currentProjectId, id);
     state.objects = state.objects.filter((o) => o.id !== id);
@@ -318,6 +373,7 @@ export const useAppStore = defineStore("app", () => {
 
   async function duplicateObject(id: string) {
     if (!state.currentProjectId) return;
+    await _flushPendingMoveHistory();
     const obj = await api.objects.duplicate(state.currentProjectId, id);
     state.objects.push(obj);
     selectObject(obj.id, false);
@@ -391,6 +447,7 @@ export const useAppStore = defineStore("app", () => {
 
   async function createRelation(data: Partial<ObjectRelation>) {
     if (!state.currentProjectId) return;
+    await _flushPendingMoveHistory();
     const relation = await api.relations.create(state.currentProjectId, data);
     state.relations.push(relation);
     await loadObjects();
@@ -400,6 +457,7 @@ export const useAppStore = defineStore("app", () => {
 
   async function deleteRelation(id: string) {
     if (!state.currentProjectId) return;
+    await _flushPendingMoveHistory();
     await api.relations.delete(state.currentProjectId, id);
     state.relations = state.relations.filter((relation) => relation.id !== id);
     await recordHistory("delete_relation", "Usunięto relację");
@@ -528,19 +586,55 @@ export const useAppStore = defineStore("app", () => {
     if (!state.currentProjectId) return;
     try {
       state.historyEntries = await api.history.list(state.currentProjectId);
+      state.historyCurrentIndex = state.historyEntries.length - 1;
     } catch (error) {
       console.error("Failed to load history:", error);
       state.historyEntries = [];
+      state.historyCurrentIndex = -1;
     }
   }
 
   async function revertToHistory(historyId: string) {
     if (!state.currentProjectId) return;
+    await _flushPendingMoveHistory();
     const result = await api.history.revert(state.currentProjectId, historyId);
     state.objects = result.objects;
     state.selectedObjectIds = [];
     state.contextMode = "none";
     await loadHistory();
+  }
+
+  async function undoHistory() {
+    if (!state.currentProjectId) return;
+    await _flushPendingMoveHistory();
+    const targetIndex = state.historyCurrentIndex - 1;
+    if (targetIndex < 0 || state.historyEntries.length === 0) return;
+    const targetEntry = state.historyEntries[targetIndex];
+    if (!targetEntry) return;
+    const result = await api.history.navigate(
+      state.currentProjectId,
+      targetEntry.id,
+    );
+    state.objects = result.objects;
+    state.selectedObjectIds = [];
+    state.contextMode = "none";
+    state.historyCurrentIndex = targetIndex;
+  }
+
+  async function redoHistory() {
+    if (!state.currentProjectId) return;
+    const targetIndex = state.historyCurrentIndex + 1;
+    if (targetIndex >= state.historyEntries.length) return;
+    const targetEntry = state.historyEntries[targetIndex];
+    if (!targetEntry) return;
+    const result = await api.history.navigate(
+      state.currentProjectId,
+      targetEntry.id,
+    );
+    state.objects = result.objects;
+    state.selectedObjectIds = [];
+    state.contextMode = "none";
+    state.historyCurrentIndex = targetIndex;
   }
 
   function copySelected() {
@@ -553,6 +647,7 @@ export const useAppStore = defineStore("app", () => {
   async function pasteClipboard() {
     if (!state.clipboard || state.clipboard.length === 0) return;
     if (!state.currentProjectId) return;
+    await _flushPendingMoveHistory();
 
     const PASTE_OFFSET = 50;
     const pasted: FurnitureObject[] = [];
@@ -757,6 +852,8 @@ export const useAppStore = defineStore("app", () => {
     resetRelationEditor,
     loadHistory,
     revertToHistory,
+    undoHistory,
+    redoHistory,
     recordHistory,
     copySelected,
     pasteClipboard,

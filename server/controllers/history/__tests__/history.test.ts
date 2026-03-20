@@ -128,4 +128,99 @@ describe("history controller", () => {
     });
     expect(response.status).toBe(404);
   });
+
+  test("navigate restores objects without deleting future history entries", async () => {
+    const handlers = createHistoryHandlers(database);
+
+    // Add two history entries (with empty snapshot to avoid NOT NULL issues in test)
+    const addEntry = async (label: string) => {
+      const resp = await handlers.addHistory(
+        new Request(`http://app.local/api/projects/${projectId}/history`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action_type: "test", action_label: label, snapshot: "[]" }),
+        }),
+        { projectId },
+      );
+      return (await resp.json()) as HistoryRow;
+    };
+
+    const entryA = await addEntry("Entry A");
+    await addEntry("Entry B");
+
+    // Navigate back to A (undo-style: no future entries deleted)
+    const navResp = await handlers.navigateHistory(
+      new Request(
+        `http://app.local/api/projects/${projectId}/history/${entryA.id}/navigate`,
+        { method: "POST" },
+      ),
+      { projectId, historyId: entryA.id },
+    );
+    expect(navResp.status).toBe(200);
+    const navResult = (await navResp.json()) as { success: boolean; objects: { id: string }[] };
+    expect(navResult.success).toBe(true);
+
+    // Both history entries still exist (navigate does NOT delete future ones)
+    const listResp = await handlers.getHistory(
+      new Request(`http://app.local/api/projects/${projectId}/history`),
+      { projectId },
+    );
+    const entries = (await listResp.json()) as HistoryRow[];
+    expect(entries.length).toBe(2);
+  });
+
+  test("navigate returns 404 for non-existent entry", async () => {
+    const handlers = createHistoryHandlers(database);
+    const response = await handlers.navigateHistory(
+      new Request(
+        `http://app.local/api/projects/${projectId}/history/non-existent/navigate`,
+        { method: "POST" },
+      ),
+      { projectId, historyId: "non-existent" },
+    );
+    expect(response.status).toBe(404);
+  });
+
+  test("addHistory with trim_after_id removes future entries before inserting", async () => {
+    const handlers = createHistoryHandlers(database);
+
+    const addEntry = async (label: string) => {
+      const resp = await handlers.addHistory(
+        new Request(`http://app.local/api/projects/${projectId}/history`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action_type: "test", action_label: label, snapshot: "[]" }),
+        }),
+        { projectId },
+      );
+      return (await resp.json()) as HistoryRow;
+    };
+
+    const entryA = await addEntry("A");
+    await addEntry("B");
+    await addEntry("C");
+
+    // Now add a new entry with trim_after_id = entryA, simulating an action taken after undoing to A
+    await handlers.addHistory(
+      new Request(`http://app.local/api/projects/${projectId}/history`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action_type: "test", action_label: "D", snapshot: "[]", trim_after_id: entryA.id }),
+      }),
+      { projectId },
+    );
+
+    const listResp = await handlers.getHistory(
+      new Request(`http://app.local/api/projects/${projectId}/history`),
+      { projectId },
+    );
+    const entries = (await listResp.json()) as HistoryRow[];
+    const labels = entries.map((e) => e.action_label);
+
+    // A is kept, B and C were trimmed, D was added
+    expect(labels).toContain("A");
+    expect(labels).toContain("D");
+    expect(labels).not.toContain("B");
+    expect(labels).not.toContain("C");
+  });
 });
