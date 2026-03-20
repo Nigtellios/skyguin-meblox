@@ -93,6 +93,44 @@ describe("relations controller", () => {
     expect(relation.source_field).toBe("width");
   });
 
+  test("creating a dimension relation propagates source value to target", async () => {
+    // Source has width=600, target has width=18 (different) — after relation
+    // is created, syncRelations must update target.width to match source.width.
+    const source = await createObject("Źródło", 600);
+    const target = await createObject("Cel", 18);
+    const handlers = createRelationHandlers(database);
+    const objectHandlers = createObjectHandlers(database);
+
+    const req = new Request(
+      `http://app.local/api/projects/${projectId}/relations`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_object_id: source.id,
+          target_object_id: target.id,
+          relation_type: "dimension",
+          source_field: "width",
+          target_field: "width",
+          mode: "direct",
+        }),
+      },
+    );
+    const response = await handlers.createRelation(req, { projectId });
+    expect(response.status).toBe(201);
+
+    // Verify target.width has been synced to match source.width
+    const getReq = new Request(
+      `http://app.local/api/projects/${projectId}/objects`,
+    );
+    const objects = (await (
+      await objectHandlers.getObjects(getReq, { projectId })
+    ).json()) as FurnitureObjectRow[];
+
+    const updatedTarget = objects.find((o) => o.id === target.id);
+    expect(updatedTarget?.width).toBe(600);
+  });
+
   test("rejects invalid relation (same source and target)", async () => {
     const obj = await createObject("Obiekt");
     const handlers = createRelationHandlers(database);

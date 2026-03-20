@@ -1,25 +1,28 @@
 import { describe, expect, test } from "bun:test";
-import ProjectsModal from "../ProjectsModal.vue";
+import { DEFAULT_PROJECT_NAME, formatDate } from "../projectsModalUtils";
 
 // ProjectsModal lists projects and allows creation and selection.
+// The pure helper logic is extracted into projectsModalUtils for direct testing.
 describe("ProjectsModal", () => {
-  test("component can be imported", () => {
-    expect(ProjectsModal).toBeDefined();
+  test("formatDate produces a non-empty Polish date string", () => {
+    const ts = new Date("2024-06-15T10:30:00Z").getTime();
+    const result = formatDate(ts);
+    expect(result).toBeString();
+    expect(result.length).toBeGreaterThan(0);
+    // Should include the year
+    expect(result).toContain("2024");
   });
 
-  test("project has id, name, and created_at fields", () => {
-    const project = {
-      id: "proj-1",
-      name: "Szafa narożna",
-      description: "Projekt szafy",
-      grid_size_mm: 100,
-      grid_visible: 1,
-      created_at: Date.now(),
-      updated_at: Date.now(),
-    };
-    expect(project.id).toBeString();
-    expect(project.name).toBeString();
-    expect(project.created_at).toBeNumber();
+  test("formatDate formats different timestamps differently", () => {
+    const ts1 = new Date("2024-01-01T00:00:00Z").getTime();
+    const ts2 = new Date("2024-06-15T10:30:00Z").getTime();
+    expect(formatDate(ts1)).not.toBe(formatDate(ts2));
+  });
+
+  test("DEFAULT_PROJECT_NAME is a non-empty string", () => {
+    expect(DEFAULT_PROJECT_NAME).toBeString();
+    expect(DEFAULT_PROJECT_NAME.length).toBeGreaterThan(0);
+    expect(DEFAULT_PROJECT_NAME).toBe("Nowy projekt");
   });
 
   test("projects list can be sorted by creation time descending", () => {
@@ -30,11 +33,5 @@ describe("ProjectsModal", () => {
     ];
     const sorted = [...projects].sort((a, b) => b.created_at - a.created_at);
     expect(sorted[0]?.id).toBe("b");
-  });
-
-  test("new project default name is valid", () => {
-    const defaultName = "Nowy projekt";
-    expect(defaultName).toBe("Nowy projekt");
-    expect(defaultName.length).toBeGreaterThan(0);
   });
 });

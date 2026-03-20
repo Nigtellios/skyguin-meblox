@@ -238,7 +238,7 @@ describe("objects controller", () => {
         ]),
       },
     );
-    const response = await handlers.updateObjectsBatch(batchReq);
+    const response = await handlers.updateObjectsBatch(batchReq, { projectId });
     expect(response.status).toBe(200);
     const result = (await response.json()) as { updated: number };
     expect(result.updated).toBe(2);

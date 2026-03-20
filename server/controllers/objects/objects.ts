@@ -192,7 +192,10 @@ export function createObjectHandlers(database: Database) {
     );
   };
 
-  const updateObjectsBatch = async (req: Request) => {
+  const updateObjectsBatch = async (
+    req: Request,
+    params: Record<string, string>,
+  ) => {
     const updates = await parseArrayBody<
       FurnitureObjectPayload & { id?: string }
     >(req);
@@ -212,7 +215,7 @@ export function createObjectHandlers(database: Database) {
             depth = COALESCE(?, depth),
             color = COALESCE(?, color),
             updated_at = ?
-           WHERE id = ?`,
+           WHERE id = ? AND project_id = ?`,
         )
         .run(
           toSqlValue(item.name),
@@ -222,6 +225,7 @@ export function createObjectHandlers(database: Database) {
           toSqlValue(item.color),
           now,
           item.id,
+          params.projectId,
         );
     }
 
@@ -229,7 +233,9 @@ export function createObjectHandlers(database: Database) {
   };
 
   const deleteObject = (_req: Request, params: Record<string, string>) => {
-    database.query("DELETE FROM furniture_objects WHERE id = ?").run(params.id);
+    database
+      .query("DELETE FROM furniture_objects WHERE id = ? AND project_id = ?")
+      .run(params.id, params.projectId);
     return json({ success: true });
   };
 
@@ -239,8 +245,9 @@ export function createObjectHandlers(database: Database) {
   ) => {
     const source = getOne<FurnitureObjectRow>(
       database,
-      "SELECT * FROM furniture_objects WHERE id = ?",
+      "SELECT * FROM furniture_objects WHERE id = ? AND project_id = ?",
       params.id,
+      params.projectId,
     );
     if (!source) {
       return json({ error: "Not found" }, 404);
@@ -317,8 +324,8 @@ export function registerObjectRoutes(
   addRoute("POST", "/api/projects/:projectId/objects", (req, params) =>
     handlers.createObject(req, params),
   );
-  addRoute("PUT", "/api/projects/:projectId/objects/batch", (req) =>
-    handlers.updateObjectsBatch(req),
+  addRoute("PUT", "/api/projects/:projectId/objects/batch", (req, params) =>
+    handlers.updateObjectsBatch(req, params),
   );
   addRoute("PUT", "/api/projects/:projectId/objects/:id", (req, params) =>
     handlers.updateObject(req, params),

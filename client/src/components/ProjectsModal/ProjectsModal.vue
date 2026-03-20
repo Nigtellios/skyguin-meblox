@@ -84,6 +84,7 @@
 <script setup lang="ts">
 import { useAppStore } from "../../composables/useAppStore";
 import type { Project } from "../../types";
+import { DEFAULT_PROJECT_NAME, formatDate } from "./projectsModalUtils";
 
 defineProps<{
   projects: readonly Project[];
@@ -97,23 +98,13 @@ const emit = defineEmits<{
 
 const store = useAppStore();
 
-function formatDate(ts: number) {
-  return new Date(ts).toLocaleDateString("pl-PL", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 async function onSelectProject(id: string) {
   emit("select-project", id);
   emit("close");
 }
 
 async function onNewProject() {
-  const name = prompt("Nazwa nowego projektu:", "Nowy projekt");
+  const name = prompt("Nazwa nowego projektu:", DEFAULT_PROJECT_NAME);
   if (name?.trim()) {
     await store.createProject(name.trim());
     emit("close");

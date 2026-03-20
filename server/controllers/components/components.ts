@@ -43,17 +43,18 @@ export function createComponentHandlers(database: Database) {
     for (const objectId of objectIds) {
       database
         .query(
-          "UPDATE furniture_objects SET component_id = ?, is_independent = 0, updated_at = ? WHERE id = ?",
+          "UPDATE furniture_objects SET component_id = ?, is_independent = 0, updated_at = ? WHERE id = ? AND project_id = ?",
         )
-        .run(id, now, objectId);
+        .run(id, now, objectId, params.projectId);
     }
 
     const firstObjectId = objectIds.at(0);
     const firstObject = firstObjectId
       ? getOne<FurnitureObjectRow>(
           database,
-          "SELECT * FROM furniture_objects WHERE id = ?",
+          "SELECT * FROM furniture_objects WHERE id = ? AND project_id = ?",
           firstObjectId,
+          params.projectId,
         )
       : null;
 
@@ -68,7 +69,7 @@ export function createComponentHandlers(database: Database) {
               color = ?,
               material_template_id = ?,
               updated_at = ?
-             WHERE id = ? AND is_independent = 0`,
+             WHERE id = ? AND is_independent = 0 AND project_id = ?`,
           )
           .run(
             firstObject.width,
@@ -78,6 +79,7 @@ export function createComponentHandlers(database: Database) {
             firstObject.material_template_id,
             now,
             objectId,
+            params.projectId,
           );
       }
     }
@@ -95,10 +97,13 @@ export function createComponentHandlers(database: Database) {
   const deleteComponent = (_req: Request, params: Record<string, string>) => {
     database
       .query(
-        "UPDATE furniture_objects SET component_id = NULL, is_independent = 0 WHERE component_id = ?",
+        `UPDATE furniture_objects SET component_id = NULL, is_independent = 0
+         WHERE component_id = ? AND project_id = ?`,
       )
-      .run(params.id);
-    database.query("DELETE FROM component_groups WHERE id = ?").run(params.id);
+      .run(params.id, params.projectId);
+    database
+      .query("DELETE FROM component_groups WHERE id = ? AND project_id = ?")
+      .run(params.id, params.projectId);
     return json({ success: true });
   };
 

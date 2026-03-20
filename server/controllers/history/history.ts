@@ -61,8 +61,9 @@ export function createHistoryHandlers(database: Database) {
   ) => {
     const entry = getOne<HistoryRow>(
       database,
-      "SELECT * FROM project_history WHERE id = ?",
+      "SELECT * FROM project_history WHERE id = ? AND project_id = ?",
       params.historyId,
+      params.projectId,
     );
     if (!entry) return json({ error: "History entry not found" }, 404);
 
