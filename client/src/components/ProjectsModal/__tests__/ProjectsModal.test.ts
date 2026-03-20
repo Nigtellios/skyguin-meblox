@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import ProjectsModal from "../ProjectsModal.vue";
 
 // ProjectsModal lists projects and allows creation and selection.
 describe("ProjectsModal", () => {
+  test("component can be imported", () => {
+    expect(ProjectsModal).toBeDefined();
+  });
+
   test("project has id, name, and created_at fields", () => {
     const project = {
       id: "proj-1",
