@@ -618,14 +618,18 @@ export const useAppStore = defineStore("app", () => {
     if (targetIndex < 0 || state.historyEntries.length === 0) return;
     const targetEntry = state.historyEntries[targetIndex];
     if (!targetEntry) return;
-    const result = await api.history.navigate(
-      state.currentProjectId,
-      targetEntry.id,
-    );
-    state.objects = result.objects;
-    state.selectedObjectIds = [];
-    state.contextMode = "none";
-    state.historyCurrentIndex = targetIndex;
+    try {
+      const result = await api.history.navigate(
+        state.currentProjectId,
+        targetEntry.id,
+      );
+      state.objects = result.objects;
+      state.selectedObjectIds = [];
+      state.contextMode = "none";
+      state.historyCurrentIndex = targetIndex;
+    } catch (error) {
+      console.error("Failed to undo history:", error);
+    }
   }
 
   async function redoHistory() {
