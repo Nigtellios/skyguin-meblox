@@ -347,6 +347,11 @@ function onSnapTargetSelected(targetId: string) {
 }
 
 // ---- Keyboard shortcuts ----
+function isInputFocused() {
+  const tag = document.activeElement?.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
 function onKeyDown(e: KeyboardEvent) {
   const ctrl = e.ctrlKey || e.metaKey;
 
@@ -361,6 +366,7 @@ function onKeyDown(e: KeyboardEvent) {
 
   // Ctrl+Z: undo
   if (ctrl && (e.key === "z" || e.key === "Z") && !e.shiftKey) {
+    if (isInputFocused()) return;
     e.preventDefault();
     store.undoHistory();
     return;
@@ -371,6 +377,7 @@ function onKeyDown(e: KeyboardEvent) {
     (ctrl && (e.key === "y" || e.key === "Y")) ||
     (ctrl && e.shiftKey && (e.key === "z" || e.key === "Z"))
   ) {
+    if (isInputFocused()) return;
     e.preventDefault();
     store.redoHistory();
     return;
@@ -394,9 +401,7 @@ function onKeyDown(e: KeyboardEvent) {
 
   // Delete: delete selected
   if (e.key === "Delete" || e.key === "Backspace") {
-    const active = document.activeElement?.tagName;
-    if (active === "INPUT" || active === "TEXTAREA" || active === "SELECT")
-      return;
+    if (isInputFocused()) return;
     if (store.state.selectedObjectIds.length > 0) {
       onDeleteSelected();
     }

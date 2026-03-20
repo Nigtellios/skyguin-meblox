@@ -6,6 +6,75 @@ import { json, parseObjectBody } from "../../utils/http";
 const MAX_HISTORY_ENTRIES = 100;
 
 export function createHistoryHandlers(database: Database) {
+  /**
+   * Shared helper: replace all furniture objects for a project with those from
+   * a snapshot.  Used by both `revertHistory` (which then also trims future
+   * history) and `navigateHistory` (which keeps future history intact).
+   *
+   * Returns `{ ok: true, objects }` on success, or `{ ok: false, response }`
+   * containing a ready-made error Response on failure so call sites can return
+   * it directly without `instanceof` checks.
+   */
+  function tryRestoreSnapshot(
+    projectId: string,
+    snapshot: string,
+  ):
+    | { ok: true; objects: FurnitureObjectRow[] }
+    | { ok: false; response: Response } {
+    let objects: FurnitureObjectRow[] = [];
+    try {
+      objects = JSON.parse(snapshot) as FurnitureObjectRow[];
+    } catch {
+      return { ok: false, response: json({ error: "Invalid snapshot" }, 400) };
+    }
+
+    const now = Date.now();
+
+    database.transaction(() => {
+      database
+        .query("DELETE FROM furniture_objects WHERE project_id = ?")
+        .run(projectId);
+
+      const insertStmt = database.prepare(
+        `INSERT INTO furniture_objects (
+          id, project_id, name, width, height, depth,
+          position_x, position_y, position_z, rotation_y,
+          color, material_template_id, component_id, is_independent,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      for (const obj of objects) {
+        insertStmt.run(
+          obj.id,
+          projectId,
+          obj.name,
+          obj.width,
+          obj.height,
+          obj.depth,
+          obj.position_x,
+          obj.position_y,
+          obj.position_z,
+          obj.rotation_y,
+          obj.color,
+          obj.material_template_id,
+          obj.component_id,
+          obj.is_independent,
+          obj.created_at,
+          now,
+        );
+      }
+    })();
+
+    return {
+      ok: true,
+      objects: getAll<FurnitureObjectRow>(
+        database,
+        "SELECT * FROM furniture_objects WHERE project_id = ? ORDER BY created_at ASC",
+        projectId,
+      ),
+    };
+  }
+
   const getHistory = (_req: Request, params: Record<string, string>) =>
     json(
       getAll<Omit<HistoryRow, "snapshot">>(
@@ -98,66 +167,16 @@ export function createHistoryHandlers(database: Database) {
     );
     if (!entry) return json({ error: "History entry not found" }, 404);
 
-    let objects: FurnitureObjectRow[] = [];
-    try {
-      objects = JSON.parse(entry.snapshot) as FurnitureObjectRow[];
-    } catch {
-      return json({ error: "Invalid snapshot" }, 400);
-    }
+    const restoredOrError = tryRestoreSnapshot(params.projectId, entry.snapshot);
+    if (!restoredOrError.ok) return restoredOrError.response;
 
-    const now = Date.now();
+    database
+      .query(
+        "DELETE FROM project_history WHERE project_id = ? AND created_at > ?",
+      )
+      .run(params.projectId, entry.created_at);
 
-    const executeRevert = database.transaction(() => {
-      database
-        .query("DELETE FROM furniture_objects WHERE project_id = ?")
-        .run(params.projectId);
-
-      const insertStmt = database.prepare(
-        `INSERT INTO furniture_objects (
-          id, project_id, name, width, height, depth,
-          position_x, position_y, position_z, rotation_y,
-          color, material_template_id, component_id, is_independent,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      for (const obj of objects) {
-        insertStmt.run(
-          obj.id,
-          params.projectId,
-          obj.name,
-          obj.width,
-          obj.height,
-          obj.depth,
-          obj.position_x,
-          obj.position_y,
-          obj.position_z,
-          obj.rotation_y,
-          obj.color,
-          obj.material_template_id,
-          obj.component_id,
-          obj.is_independent,
-          obj.created_at,
-          now,
-        );
-      }
-
-      database
-        .query(
-          "DELETE FROM project_history WHERE project_id = ? AND created_at > ?",
-        )
-        .run(params.projectId, entry.created_at);
-    });
-
-    executeRevert();
-
-    return json({
-      success: true,
-      objects: getAll<FurnitureObjectRow>(
-        database,
-        "SELECT * FROM furniture_objects WHERE project_id = ? ORDER BY created_at ASC",
-        params.projectId,
-      ),
-    });
+    return json({ success: true, objects: restoredOrError.objects });
   };
 
   const navigateHistory = async (
@@ -172,61 +191,11 @@ export function createHistoryHandlers(database: Database) {
     );
     if (!entry) return json({ error: "History entry not found" }, 404);
 
-    let objects: FurnitureObjectRow[] = [];
-    try {
-      objects = JSON.parse(entry.snapshot) as FurnitureObjectRow[];
-    } catch {
-      return json({ error: "Invalid snapshot" }, 400);
-    }
+    // navigate does NOT delete future history entries
+    const restoredOrError = tryRestoreSnapshot(params.projectId, entry.snapshot);
+    if (!restoredOrError.ok) return restoredOrError.response;
 
-    const now = Date.now();
-
-    const executeRestore = database.transaction(() => {
-      database
-        .query("DELETE FROM furniture_objects WHERE project_id = ?")
-        .run(params.projectId);
-
-      const insertStmt = database.prepare(
-        `INSERT INTO furniture_objects (
-          id, project_id, name, width, height, depth,
-          position_x, position_y, position_z, rotation_y,
-          color, material_template_id, component_id, is_independent,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      );
-      for (const obj of objects) {
-        insertStmt.run(
-          obj.id,
-          params.projectId,
-          obj.name,
-          obj.width,
-          obj.height,
-          obj.depth,
-          obj.position_x,
-          obj.position_y,
-          obj.position_z,
-          obj.rotation_y,
-          obj.color,
-          obj.material_template_id,
-          obj.component_id,
-          obj.is_independent,
-          obj.created_at,
-          now,
-        );
-      }
-      // navigate does NOT delete future history entries
-    });
-
-    executeRestore();
-
-    return json({
-      success: true,
-      objects: getAll<FurnitureObjectRow>(
-        database,
-        "SELECT * FROM furniture_objects WHERE project_id = ? ORDER BY created_at ASC",
-        params.projectId,
-      ),
-    });
+    return json({ success: true, objects: restoredOrError.objects });
   };
 
   return { getHistory, addHistory, revertHistory, navigateHistory };

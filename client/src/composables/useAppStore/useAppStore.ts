@@ -154,6 +154,13 @@ export const useAppStore = defineStore("app", () => {
   }
 
   async function selectProject(id: string) {
+    // Cancel any pending debounced move history for the old project
+    if (_pendingMoveTimer !== null) {
+      clearTimeout(_pendingMoveTimer);
+      _pendingMoveTimer = null;
+      _pendingMoveLabel = "";
+      _pendingMoveType = "";
+    }
     state.currentProjectId = id;
     state.selectedObjectIds = [];
     state.contextMode = "none";
