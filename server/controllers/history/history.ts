@@ -167,7 +167,10 @@ export function createHistoryHandlers(database: Database) {
     );
     if (!entry) return json({ error: "History entry not found" }, 404);
 
-    const restoredOrError = tryRestoreSnapshot(params.projectId, entry.snapshot);
+    const restoredOrError = tryRestoreSnapshot(
+      params.projectId,
+      entry.snapshot,
+    );
     if (!restoredOrError.ok) return restoredOrError.response;
 
     database
@@ -192,7 +195,10 @@ export function createHistoryHandlers(database: Database) {
     if (!entry) return json({ error: "History entry not found" }, 404);
 
     // navigate does NOT delete future history entries
-    const restoredOrError = tryRestoreSnapshot(params.projectId, entry.snapshot);
+    const restoredOrError = tryRestoreSnapshot(
+      params.projectId,
+      entry.snapshot,
+    );
     if (!restoredOrError.ok) return restoredOrError.response;
 
     return json({ success: true, objects: restoredOrError.objects });

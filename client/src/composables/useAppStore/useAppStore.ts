@@ -359,7 +359,10 @@ export const useAppStore = defineStore("app", () => {
       _pendingMoveTimer = setTimeout(() => {
         _pendingMoveTimer = null;
         // If the project has changed (or been cleared) since scheduling, skip recording.
-        if (!state.currentProjectId || state.currentProjectId !== scheduledProjectId) {
+        if (
+          !state.currentProjectId ||
+          state.currentProjectId !== scheduledProjectId
+        ) {
           _pendingMoveLabel = "";
           _pendingMoveType = "";
           return;
