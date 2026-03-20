@@ -634,18 +634,23 @@ export const useAppStore = defineStore("app", () => {
 
   async function redoHistory() {
     if (!state.currentProjectId) return;
+    await _flushPendingMoveHistory();
     const targetIndex = state.historyCurrentIndex + 1;
     if (targetIndex >= state.historyEntries.length) return;
     const targetEntry = state.historyEntries[targetIndex];
     if (!targetEntry) return;
-    const result = await api.history.navigate(
-      state.currentProjectId,
-      targetEntry.id,
-    );
-    state.objects = result.objects;
-    state.selectedObjectIds = [];
-    state.contextMode = "none";
-    state.historyCurrentIndex = targetIndex;
+    try {
+      const result = await api.history.navigate(
+        state.currentProjectId,
+        targetEntry.id,
+      );
+      state.objects = result.objects;
+      state.selectedObjectIds = [];
+      state.contextMode = "none";
+      state.historyCurrentIndex = targetIndex;
+    } catch (error) {
+      console.error("Failed to redo history entry", error);
+    }
   }
 
   function copySelected() {
