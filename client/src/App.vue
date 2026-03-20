@@ -123,17 +123,17 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, watch } from "vue";
-import ComponentsPanel from "./components/ComponentsPanel.vue";
-import ContextBar from "./components/ContextBar.vue";
-import GridSettingsPanel from "./components/GridSettingsPanel.vue";
-import HistoryPanel from "./components/HistoryPanel.vue";
-import MaterialsPanel from "./components/MaterialsPanel.vue";
-import ObjectPropertiesPanel from "./components/ObjectPropertiesPanel.vue";
-import ObjectsPanel from "./components/ObjectsPanel.vue";
-import ProjectsModal from "./components/ProjectsModal.vue";
-import RelationsPanel from "./components/RelationsPanel.vue";
-import SceneCanvas from "./components/SceneCanvas.vue";
-import ToolButton from "./components/ToolButton.vue";
+import ComponentsPanel from "./components/ComponentsPanel/ComponentsPanel.vue";
+import ContextBar from "./components/ContextBar/ContextBar.vue";
+import GridSettingsPanel from "./components/GridSettingsPanel/GridSettingsPanel.vue";
+import HistoryPanel from "./components/HistoryPanel/HistoryPanel.vue";
+import MaterialsPanel from "./components/MaterialsPanel/MaterialsPanel.vue";
+import ObjectPropertiesPanel from "./components/ObjectPropertiesPanel/ObjectPropertiesPanel.vue";
+import ObjectsPanel from "./components/ObjectsPanel/ObjectsPanel.vue";
+import ProjectsModal from "./components/ProjectsModal/ProjectsModal.vue";
+import RelationsPanel from "./components/RelationsPanel/RelationsPanel.vue";
+import SceneCanvas from "./components/SceneCanvas/SceneCanvas.vue";
+import ToolButton from "./components/ToolButton/ToolButton.vue";
 import { useAppStore } from "./composables/useAppStore";
 import type { AppPanel, SceneMode } from "./types";
 
