@@ -26,7 +26,9 @@ export function createHistoryHandlers(database: Database) {
     const now = Date.now();
 
     if (body.trim_after_id) {
-      const afterEntry = getOne<Pick<HistoryRow, "created_at"> & { rowid: number }>(
+      const afterEntry = getOne<
+        Pick<HistoryRow, "created_at"> & { rowid: number }
+      >(
         database,
         "SELECT rowid, created_at FROM project_history WHERE id = ? AND project_id = ?",
         body.trim_after_id,
@@ -37,7 +39,12 @@ export function createHistoryHandlers(database: Database) {
           .query(
             "DELETE FROM project_history WHERE project_id = ? AND (created_at > ? OR (created_at = ? AND rowid > ?))",
           )
-          .run(params.projectId, afterEntry.created_at, afterEntry.created_at, afterEntry.rowid);
+          .run(
+            params.projectId,
+            afterEntry.created_at,
+            afterEntry.created_at,
+            afterEntry.rowid,
+          );
       }
     }
 

@@ -138,7 +138,11 @@ describe("history controller", () => {
         new Request(`http://app.local/api/projects/${projectId}/history`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action_type: "test", action_label: label, snapshot: "[]" }),
+          body: JSON.stringify({
+            action_type: "test",
+            action_label: label,
+            snapshot: "[]",
+          }),
         }),
         { projectId },
       );
@@ -157,7 +161,10 @@ describe("history controller", () => {
       { projectId, historyId: entryA.id },
     );
     expect(navResp.status).toBe(200);
-    const navResult = (await navResp.json()) as { success: boolean; objects: { id: string }[] };
+    const navResult = (await navResp.json()) as {
+      success: boolean;
+      objects: { id: string }[];
+    };
     expect(navResult.success).toBe(true);
 
     // Both history entries still exist (navigate does NOT delete future ones)
@@ -189,7 +196,11 @@ describe("history controller", () => {
         new Request(`http://app.local/api/projects/${projectId}/history`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action_type: "test", action_label: label, snapshot: "[]" }),
+          body: JSON.stringify({
+            action_type: "test",
+            action_label: label,
+            snapshot: "[]",
+          }),
         }),
         { projectId },
       );
@@ -205,7 +216,12 @@ describe("history controller", () => {
       new Request(`http://app.local/api/projects/${projectId}/history`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action_type: "test", action_label: "D", snapshot: "[]", trim_after_id: entryA.id }),
+        body: JSON.stringify({
+          action_type: "test",
+          action_label: "D",
+          snapshot: "[]",
+          trim_after_id: entryA.id,
+        }),
       }),
       { projectId },
     );
