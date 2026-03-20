@@ -34,18 +34,25 @@ export function createHistoryHandlers(database: Database) {
         body.trim_after_id,
         params.projectId,
       );
-      if (afterEntry) {
-        database
-          .query(
-            "DELETE FROM project_history WHERE project_id = ? AND (created_at > ? OR (created_at = ? AND rowid > ?))",
-          )
-          .run(
-            params.projectId,
-            afterEntry.created_at,
-            afterEntry.created_at,
-            afterEntry.rowid,
-          );
+      if (!afterEntry) {
+        return json(
+          {
+            error:
+              "Invalid trim_after_id: history entry not found for the specified project",
+          },
+          400,
+        );
       }
+      database
+        .query(
+          "DELETE FROM project_history WHERE project_id = ? AND (created_at > ? OR (created_at = ? AND rowid > ?))",
+        )
+        .run(
+          params.projectId,
+          afterEntry.created_at,
+          afterEntry.created_at,
+          afterEntry.rowid,
+        );
     }
 
     database
