@@ -1,25 +1,40 @@
 import { describe, expect, test } from "bun:test";
+import { mount } from "@vue/test-utils";
+import ToolButton from "../ToolButton.vue";
 
 // ToolButton is a simple icon button with active state styling.
 describe("ToolButton", () => {
   test("active prop controls visual state", () => {
     // When active is true, the button uses blue styling
     // When active is false, it uses neutral styling
-    const activeClass = "bg-blue-600 text-white shadow-lg shadow-blue-900/50";
-    const inactiveClass =
-      "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50";
+    const activeWrapper = mount(ToolButton, {
+      props: {
+        active: true,
+      },
+    });
+    const inactiveWrapper = mount(ToolButton, {
+      props: {
+        active: false,
+      },
+    });
 
-    function getButtonClass(active: boolean) {
-      return active ? activeClass : inactiveClass;
-    }
+    const activeButton = activeWrapper.find("button");
+    const inactiveButton = inactiveWrapper.find("button");
 
-    expect(getButtonClass(true)).toContain("bg-blue-600");
-    expect(getButtonClass(false)).toContain("text-slate-400");
-    expect(getButtonClass(true)).not.toBe(getButtonClass(false));
+    expect(activeButton.classes()).toContain("bg-blue-600");
+    expect(inactiveButton.classes()).toContain("text-slate-400");
+    expect(activeButton.classes()).not.toEqual(inactiveButton.classes());
   });
 
   test("title prop is used as accessibility tooltip", () => {
     const title = "Zaznacz";
-    expect(title.length).toBeGreaterThan(0);
+    const wrapper = mount(ToolButton, {
+      props: {
+        title,
+      },
+    });
+
+    const button = wrapper.find("button");
+    expect(button.attributes("title")).toBe(title);
   });
 });
