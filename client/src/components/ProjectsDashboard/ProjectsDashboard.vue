@@ -135,7 +135,7 @@
               Usuń
             </button>
           </div>
-        </div>
+        </button>
       </div>
     </div>
 

@@ -199,9 +199,7 @@ describe("projects controller", () => {
     const copy = (await response.json()) as ProjectRow;
 
     const copiedGroups = database
-      .query(
-        "SELECT * FROM component_groups WHERE project_id = ?",
-      )
+      .query("SELECT * FROM component_groups WHERE project_id = ?")
       .all(copy.id) as ComponentGroupRow[];
 
     expect(copiedGroups).toHaveLength(1);
@@ -428,9 +426,7 @@ describe("projects controller", () => {
 
     // Backdate the seeded project's updated_at so it is clearly older
     const pastTs = Date.now() - 10_000;
-    database
-      .query("UPDATE projects SET updated_at = ?")
-      .run(pastTs);
+    database.query("UPDATE projects SET updated_at = ?").run(pastTs);
 
     // Create a second project (newer by default)
     const createReq = new Request("http://app.local/api/projects", {

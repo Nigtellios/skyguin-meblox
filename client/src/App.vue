@@ -308,7 +308,9 @@ function onBeforeUnload() {
   });
   // sendBeacon ensures delivery even as the page unloads (POST only)
   const beaconSupported = typeof navigator.sendBeacon === "function";
-  const beaconQueued = beaconSupported ? navigator.sendBeacon(url, body) : false;
+  const beaconQueued = beaconSupported
+    ? navigator.sendBeacon(url, body)
+    : false;
   if (!beaconQueued && typeof fetch === "function") {
     // Fallback for cases where sendBeacon fails, e.g. payload too large
     fetch(url, {
