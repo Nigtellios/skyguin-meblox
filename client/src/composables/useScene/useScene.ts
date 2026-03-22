@@ -733,17 +733,23 @@ export function useScene(canvas: HTMLCanvasElement) {
   }
 
   function captureScreenshot(): string {
-    // Force a fresh render so the framebuffer is current
-    renderer.render(scene, camera);
-    // Draw the main canvas scaled down onto an off-screen canvas
-    const offscreen = document.createElement("canvas");
-    offscreen.width = THUMBNAIL_WIDTH;
-    offscreen.height = THUMBNAIL_HEIGHT;
-    const ctx = offscreen.getContext("2d");
-    if (ctx) {
+    try {
+      // Force a fresh render so the framebuffer is current
+      renderer.render(scene, camera);
+      // Draw the main canvas scaled down onto an off-screen canvas
+      const offscreen = document.createElement("canvas");
+      offscreen.width = THUMBNAIL_WIDTH;
+      offscreen.height = THUMBNAIL_HEIGHT;
+      const ctx = offscreen.getContext("2d");
+      if (!ctx) {
+        return "";
+      }
       ctx.drawImage(canvas, 0, 0, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
+      return offscreen.toDataURL("image/jpeg", THUMBNAIL_JPEG_QUALITY);
+    } catch (error) {
+      console.error("Failed to capture screenshot", error);
+      return "";
     }
-    return offscreen.toDataURL("image/jpeg", THUMBNAIL_JPEG_QUALITY);
   }
 
   onUnmounted(dispose);
