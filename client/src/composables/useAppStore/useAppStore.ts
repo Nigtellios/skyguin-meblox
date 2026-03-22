@@ -191,19 +191,34 @@ export const useAppStore = defineStore("app", () => {
     const idx = state.projects.findIndex(
       (p) => p.id === state.currentProjectId,
     );
-    if (idx >= 0) state.projects[idx] = updated;
+    if (idx >= 0) {
+      state.projects[idx] = updated;
+      state.projects.sort((a, b) =>
+        a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0,
+      );
+    }
   }
 
   async function renameProject(id: string, name: string) {
     const updated = await api.projects.update(id, { name });
     const idx = state.projects.findIndex((p) => p.id === id);
-    if (idx >= 0) state.projects[idx] = updated;
+    if (idx >= 0) {
+      state.projects[idx] = updated;
+      state.projects.sort((a, b) =>
+        a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0,
+      );
+    }
   }
 
   async function saveThumbnail(id: string, thumbnail: string) {
     const updated = await api.projects.update(id, { thumbnail });
     const idx = state.projects.findIndex((p) => p.id === id);
-    if (idx >= 0) state.projects[idx] = updated;
+    if (idx >= 0) {
+      state.projects[idx] = updated;
+      state.projects.sort((a, b) =>
+        a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0,
+      );
+    }
   }
 
   async function duplicateProject(id: string) {
