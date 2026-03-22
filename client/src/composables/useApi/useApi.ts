@@ -179,7 +179,12 @@ export const api = {
       request<HistoryEntry[]>(`/projects/${projectId}/history`),
     add: (
       projectId: string,
-      data: { action_type: string; action_label: string; snapshot: string },
+      data: {
+        action_type: string;
+        action_label: string;
+        snapshot: string;
+        trim_after_id?: string;
+      },
     ) =>
       request<HistoryEntry>(`/projects/${projectId}/history`, {
         method: "POST",
@@ -188,6 +193,11 @@ export const api = {
     revert: (projectId: string, historyId: string) =>
       request<{ success: boolean; objects: FurnitureObject[] }>(
         `/projects/${projectId}/history/${historyId}/revert`,
+        { method: "POST" },
+      ),
+    navigate: (projectId: string, historyId: string) =>
+      request<{ success: boolean; objects: FurnitureObject[] }>(
+        `/projects/${projectId}/history/${historyId}/navigate`,
         { method: "POST" },
       ),
   },
