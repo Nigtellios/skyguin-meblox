@@ -428,7 +428,9 @@ describe("useAppStore – project dashboard actions", () => {
       thumbnail: "data:image/jpeg;base64,abc",
       updated_at: 9999,
     };
-    const updateSpy = spyOn(api.projects, "update").mockResolvedValue(withThumb);
+    const updateSpy = spyOn(api.projects, "update").mockResolvedValue(
+      withThumb,
+    );
 
     await store.saveThumbnail("p1", "data:image/jpeg;base64,abc");
 
@@ -436,7 +438,9 @@ describe("useAppStore – project dashboard actions", () => {
       thumbnail: "data:image/jpeg;base64,abc",
     });
     expect(store.state.projects[0]?.id).toBe("p1");
-    expect(store.state.projects[0]?.thumbnail).toBe("data:image/jpeg;base64,abc");
+    expect(store.state.projects[0]?.thumbnail).toBe(
+      "data:image/jpeg;base64,abc",
+    );
     expect(store.state.projects).toHaveLength(2);
   });
 
@@ -445,8 +449,13 @@ describe("useAppStore – project dashboard actions", () => {
     const store = await setupProjectStore([p1]);
     expect(store.state.projects).toHaveLength(1);
 
-    const copy = { ...makeProject("p1-copy", 2000), name: "Project p1 (kopia)" };
-    const duplicateSpy = spyOn(api.projects, "duplicate").mockResolvedValue(copy);
+    const copy = {
+      ...makeProject("p1-copy", 2000),
+      name: "Project p1 (kopia)",
+    };
+    const duplicateSpy = spyOn(api.projects, "duplicate").mockResolvedValue(
+      copy,
+    );
 
     const result = await store.duplicateProject("p1");
 
@@ -458,7 +467,6 @@ describe("useAppStore – project dashboard actions", () => {
     expect(store.state.projects).toHaveLength(2);
   });
 });
-
 
 // ---- Shape tests ----
 
