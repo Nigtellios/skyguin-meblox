@@ -1,5 +1,11 @@
 import type { Database } from "bun:sqlite";
-import type { ComponentGroupRow, FurnitureObjectRow, ObjectRelationRow, ProjectPayload, ProjectRow } from "../../types";
+import type {
+  ComponentGroupRow,
+  FurnitureObjectRow,
+  ObjectRelationRow,
+  ProjectPayload,
+  ProjectRow,
+} from "../../types";
 import { getAll, getOne } from "../../utils/db";
 import { json, parseObjectBody, toSqlValue } from "../../utils/http";
 
@@ -218,14 +224,19 @@ export function createProjectHandlers(database: Database) {
       return json({ error: "thumbnail is required" }, 400);
     }
     database
-      .query(
-        "UPDATE projects SET thumbnail = ?, updated_at = ? WHERE id = ?",
-      )
+      .query("UPDATE projects SET thumbnail = ?, updated_at = ? WHERE id = ?")
       .run(body.thumbnail, Date.now(), params.id);
     return json({ success: true });
   };
 
-  return { getProjects, createProject, updateProject, deleteProject, duplicateProject, saveThumbnail };
+  return {
+    getProjects,
+    createProject,
+    updateProject,
+    deleteProject,
+    duplicateProject,
+    saveThumbnail,
+  };
 }
 
 export function registerProjectRoutes(

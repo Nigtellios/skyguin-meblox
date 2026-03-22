@@ -88,7 +88,10 @@ export type MaterialTemplateWithLayers = MaterialTemplateRow & {
 };
 
 export type ProjectPayload = Partial<
-  Pick<ProjectRow, "name" | "description" | "grid_size_mm" | "grid_visible" | "thumbnail">
+  Pick<
+    ProjectRow,
+    "name" | "description" | "grid_size_mm" | "grid_visible" | "thumbnail"
+  >
 >;
 
 export type FurnitureObjectPayload = Partial<
