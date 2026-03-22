@@ -195,10 +195,13 @@ export function syncRelations(
     // attachment positions are computed, the target's dimensions are already
     // up-to-date in the cache (prevents objects from overlapping after a
     // dimension change).
-    const orderedRelations = [...sourceRelations].sort((a, b) => {
-      if (a.relation_type === b.relation_type) return 0;
-      return a.relation_type === "dimension" ? -1 : 1;
-    });
+    const dimensionRelations = sourceRelations.filter(
+      (relation) => relation.relation_type === "dimension",
+    );
+    const nonDimensionRelations = sourceRelations.filter(
+      (relation) => relation.relation_type !== "dimension",
+    );
+    const orderedRelations = [...dimensionRelations, ...nonDimensionRelations];
 
     for (const relation of orderedRelations) {
       let target = objectCache.get(relation.target_object_id);
