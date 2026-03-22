@@ -45,9 +45,10 @@
         class="grid gap-5"
         style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr))"
       >
-        <div
+        <button
           v-for="project in store.state.projects"
           :key="project.id"
+          type="button"
           class="group relative rounded-xl border border-slate-700/60 bg-slate-900 overflow-hidden hover:border-blue-500/60 hover:shadow-lg hover:shadow-blue-900/20 transition-all duration-200 cursor-pointer"
           @click="onOpenProject(project.id)"
         >
