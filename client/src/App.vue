@@ -288,7 +288,12 @@ async function captureAndSaveThumbnail() {
   if (!projectId) return;
   const dataUrl = sceneCanvasRef.value?.captureScreenshot();
   if (dataUrl) {
-    await store.saveThumbnail(projectId, dataUrl);
+    try {
+      await store.saveThumbnail(projectId, dataUrl);
+    } catch (error) {
+      // Best-effort: log and continue so UI navigation is not blocked
+      console.error("Failed to save project thumbnail:", error);
+    }
   }
 }
 
