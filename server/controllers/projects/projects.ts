@@ -99,21 +99,23 @@ export function createProjectHandlers(database: Database) {
     const newProjectId = crypto.randomUUID();
     const now = Date.now();
 
-    database
-      .query(
-        `INSERT INTO projects (id, name, description, grid_size_mm, grid_visible, thumbnail, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        newProjectId,
-        `${source.name} (kopia)`,
-        source.description,
-        source.grid_size_mm,
-        source.grid_visible,
-        source.thumbnail ?? null,
-        now,
-        now,
-      );
+    database.transaction(() => {
+      database
+        .query(
+          `INSERT INTO projects (id, name, description, grid_size_mm, grid_visible, thumbnail, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          newProjectId,
+          `${source.name} (kopia)`,
+          source.description,
+          source.grid_size_mm,
+          source.grid_visible,
+          source.thumbnail ?? null,
+          now,
+          now,
+        );
+    })();
 
     // Map old component group IDs → new component group IDs
     const componentIdMap = new Map<string, string>();
