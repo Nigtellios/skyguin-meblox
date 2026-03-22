@@ -302,13 +302,26 @@ function onBeforeUnload() {
   if (!projectId || store.state.showProjectsDashboard) return;
   const dataUrl = sceneCanvasRef.value?.captureScreenshot();
   if (!dataUrl) return;
+  const url = `/api/projects/${projectId}/thumbnail`;
+  const body = new Blob([JSON.stringify({ thumbnail: dataUrl })], {
+    type: "application/json",
+  });
   // sendBeacon ensures delivery even as the page unloads (POST only)
-  navigator.sendBeacon(
-    `/api/projects/${projectId}/thumbnail`,
-    new Blob([JSON.stringify({ thumbnail: dataUrl })], {
-      type: "application/json",
-    }),
-  );
+  const beaconSupported = typeof navigator.sendBeacon === "function";
+  const beaconQueued = beaconSupported ? navigator.sendBeacon(url, body) : false;
+  if (!beaconQueued && typeof fetch === "function") {
+    // Fallback for cases where sendBeacon fails, e.g. payload too large
+    fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body,
+      keepalive: true,
+    }).catch(() => {
+      // Swallow errors: we are in the unload path and cannot report them
+    });
+  }
 }
 
 // ---- Dashboard ----
