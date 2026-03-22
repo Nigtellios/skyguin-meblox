@@ -35,7 +35,6 @@ export function useScene(canvas: HTMLCanvasElement) {
     canvas,
     antialias: true,
     alpha: false,
-    preserveDrawingBuffer: true,
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(canvas.clientWidth, canvas.clientHeight);
