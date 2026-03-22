@@ -191,7 +191,19 @@ export function syncRelations(
       continue;
     }
 
-    for (const relation of sourceRelations) {
+    // Process dimension relations before attachment relations so that when
+    // attachment positions are computed, the target's dimensions are already
+    // up-to-date in the cache (prevents objects from overlapping after a
+    // dimension change).
+    const dimensionRelations = sourceRelations.filter(
+      (relation) => relation.relation_type === "dimension",
+    );
+    const nonDimensionRelations = sourceRelations.filter(
+      (relation) => relation.relation_type !== "dimension",
+    );
+    const orderedRelations = [...dimensionRelations, ...nonDimensionRelations];
+
+    for (const relation of orderedRelations) {
       let target = objectCache.get(relation.target_object_id);
       if (!target) {
         target = getObjectById(database, relation.target_object_id);
@@ -218,11 +230,16 @@ export function syncRelations(
         .filter(([, value]) => typeof value === "number")
         .map(([, value]) => value as number);
 
+      const updatedAt = Date.now();
       database
         .query(
           `UPDATE furniture_objects SET ${assignments.join(", ")}, updated_at = ? WHERE id = ?`,
         )
-        .run(...values, Date.now(), target.id);
+        .run(...values, updatedAt, target.id);
+
+      // Update the in-memory cache so that subsequent relations for this
+      // target (either as target or later as source) use the fresh values.
+      Object.assign(target, updates, { updated_at: updatedAt });
 
       const relationKey = `${relation.id}:${target.id}`;
       if (!processed.has(relationKey)) {
