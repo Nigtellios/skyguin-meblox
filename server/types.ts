@@ -4,6 +4,7 @@ export type ProjectRow = {
   description: string;
   grid_size_mm: number;
   grid_visible: number;
+  thumbnail: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -87,7 +88,10 @@ export type MaterialTemplateWithLayers = MaterialTemplateRow & {
 };
 
 export type ProjectPayload = Partial<
-  Pick<ProjectRow, "name" | "description" | "grid_size_mm" | "grid_visible">
+  Pick<
+    ProjectRow,
+    "name" | "description" | "grid_size_mm" | "grid_visible" | "thumbnail"
+  >
 >;
 
 export type FurnitureObjectPayload = Partial<

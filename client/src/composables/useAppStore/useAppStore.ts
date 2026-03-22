@@ -48,6 +48,7 @@ function createInitialState() {
     sceneMode: "select" as SceneMode,
     contextMode: "none" as ContextMode,
     showProjectsModal: false,
+    showProjectsDashboard: false,
     relationEditorMode: "visual" as RelationEditorMode,
     relationAttachSourceId: null as string | null,
     relationAttachField: "position_x" as ObjectRelation["source_field"],
@@ -140,9 +141,8 @@ export const useAppStore = defineStore("app", () => {
     try {
       state.loading = true;
       state.projects = await api.projects.list();
-      if (state.projects.length > 0 && !state.currentProjectId) {
-        await selectProject(state.projects[0].id);
-      }
+      // Show the dashboard on startup; don't auto-select a project
+      state.showProjectsDashboard = true;
     } catch (error: unknown) {
       state.error =
         error instanceof Error
@@ -191,7 +191,34 @@ export const useAppStore = defineStore("app", () => {
     const idx = state.projects.findIndex(
       (p) => p.id === state.currentProjectId,
     );
-    if (idx >= 0) state.projects[idx] = updated;
+    if (idx >= 0) {
+      state.projects.splice(idx, 1);
+      state.projects.unshift(updated);
+    }
+  }
+
+  async function renameProject(id: string, name: string) {
+    const updated = await api.projects.update(id, { name });
+    const idx = state.projects.findIndex((p) => p.id === id);
+    if (idx >= 0) {
+      state.projects.splice(idx, 1);
+      state.projects.unshift(updated);
+    }
+  }
+
+  async function saveThumbnail(id: string, thumbnail: string) {
+    const updated = await api.projects.update(id, { thumbnail });
+    const idx = state.projects.findIndex((p) => p.id === id);
+    if (idx >= 0) {
+      state.projects.splice(idx, 1);
+      state.projects.unshift(updated);
+    }
+  }
+
+  async function duplicateProject(id: string) {
+    const copy = await api.projects.duplicate(id);
+    state.projects.unshift(copy);
+    return copy;
   }
 
   async function deleteProject(id: string) {
@@ -599,6 +626,10 @@ export const useAppStore = defineStore("app", () => {
     state.showProjectsModal = show;
   }
 
+  function setShowProjectsDashboard(show: boolean) {
+    state.showProjectsDashboard = show;
+  }
+
   async function loadHistory() {
     if (!state.currentProjectId) return;
     try {
@@ -844,6 +875,9 @@ export const useAppStore = defineStore("app", () => {
     selectProject,
     createProject,
     updateProject,
+    renameProject,
+    saveThumbnail,
+    duplicateProject,
     deleteProject,
     loadObjects,
     createObject,
@@ -869,6 +903,7 @@ export const useAppStore = defineStore("app", () => {
     setSceneMode,
     setContextMode,
     setShowProjectsModal,
+    setShowProjectsDashboard,
     setRelationEditorMode,
     setRelationAttachSource,
     setRelationAttachField,

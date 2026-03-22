@@ -38,6 +38,8 @@ export const api = {
       }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/projects/${id}`, { method: "DELETE" }),
+    duplicate: (id: string) =>
+      request<Project>(`/projects/${id}/duplicate`, { method: "POST" }),
   },
 
   objects: {
