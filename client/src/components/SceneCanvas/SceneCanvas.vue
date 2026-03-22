@@ -605,4 +605,10 @@ function openAddObject() {
   showAddDialog.value = true;
   closeContextMenu();
 }
+
+function captureScreenshot(): string | null {
+  return scene?.captureScreenshot() ?? null;
+}
+
+defineExpose({ captureScreenshot });
 </script>

@@ -104,6 +104,18 @@ export function initializeDatabase(database: Database) {
     );
   `);
 
+  // Migration: add thumbnail column if it doesn't exist yet
+  const hasThumbnail = database
+    .query(
+      "SELECT COUNT(*) as cnt FROM pragma_table_info('projects') WHERE name = 'thumbnail'",
+    )
+    .get() as { cnt: number };
+  if (!hasThumbnail || hasThumbnail.cnt === 0) {
+    database.exec(
+      "ALTER TABLE projects ADD COLUMN thumbnail TEXT DEFAULT NULL",
+    );
+  }
+
   const existingProject = database
     .query("SELECT id FROM projects LIMIT 1")
     .get();

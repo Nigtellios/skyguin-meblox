@@ -1,5 +1,14 @@
 <template>
   <div class="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
+    <!-- Projects Dashboard (shown on startup and via "back" button) -->
+    <ProjectsDashboard
+      v-if="store.state.showProjectsDashboard"
+      @open-project="onDashboardOpenProject"
+      @new-project="onDashboardNewProject"
+    />
+
+    <!-- Main Editor (hidden behind dashboard on startup) -->
+    <template v-else>
     <!-- Left Sidebar: History panel (when active) -->
     <transition name="slide-panel-left">
       <HistoryPanel
@@ -49,11 +58,23 @@
     <!-- Main Canvas Area -->
     <div class="flex-1 relative overflow-hidden">
       <SceneCanvas
+        ref="sceneCanvasRef"
         @snap-target-selected="onSnapTargetSelected"
       />
 
       <!-- Top HUD bar -->
       <div class="absolute top-3 left-3 right-3 flex items-center gap-2 pointer-events-none">
+        <!-- Back to projects button -->
+        <button
+          class="pointer-events-auto btn-icon text-slate-400 hover:text-slate-100"
+          title="Wróć do projektów"
+          @click="onBackToDashboard"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+          </svg>
+        </button>
+
         <!-- Project name indicator -->
         <div class="pointer-events-auto panel-glass rounded-lg px-3 py-2 flex items-center gap-2">
           <svg class="text-slate-400" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -118,11 +139,12 @@
       @close="store.setShowProjectsModal(false)"
       @select-project="onProjectSelect"
     />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import ComponentsPanel from "./components/ComponentsPanel/ComponentsPanel.vue";
 import ContextBar from "./components/ContextBar/ContextBar.vue";
 import GridSettingsPanel from "./components/GridSettingsPanel/GridSettingsPanel.vue";
@@ -130,6 +152,7 @@ import HistoryPanel from "./components/HistoryPanel/HistoryPanel.vue";
 import MaterialsPanel from "./components/MaterialsPanel/MaterialsPanel.vue";
 import ObjectPropertiesPanel from "./components/ObjectPropertiesPanel/ObjectPropertiesPanel.vue";
 import ObjectsPanel from "./components/ObjectsPanel/ObjectsPanel.vue";
+import ProjectsDashboard from "./components/ProjectsDashboard/ProjectsDashboard.vue";
 import ProjectsModal from "./components/ProjectsModal/ProjectsModal.vue";
 import RelationsPanel from "./components/RelationsPanel/RelationsPanel.vue";
 import SceneCanvas from "./components/SceneCanvas/SceneCanvas.vue";
@@ -138,15 +161,18 @@ import { useAppStore } from "./composables/useAppStore";
 import type { AppPanel, SceneMode } from "./types";
 
 const store = useAppStore();
+const sceneCanvasRef = ref<InstanceType<typeof SceneCanvas> | null>(null);
 
 onMounted(async () => {
   await store.loadProjects();
   await store.loadMaterials();
   document.addEventListener("keydown", onKeyDown);
+  window.addEventListener("beforeunload", onBeforeUnload);
 });
 
 onUnmounted(() => {
   document.removeEventListener("keydown", onKeyDown);
+  window.removeEventListener("beforeunload", onBeforeUnload);
 });
 
 // Issue 2: Auto-enter move-controls when selecting an object while in move mode
@@ -255,6 +281,57 @@ const currentProjectName = computed(() => {
   );
   return proj?.name ?? "Brak projektu";
 });
+
+// ---- Screenshot helpers ----
+async function captureAndSaveThumbnail() {
+  const projectId = store.state.currentProjectId;
+  if (!projectId) return;
+  const dataUrl = sceneCanvasRef.value?.captureScreenshot();
+  if (dataUrl) {
+    await store.saveThumbnail(projectId, dataUrl);
+  }
+}
+
+function onBeforeUnload() {
+  const projectId = store.state.currentProjectId;
+  if (!projectId || store.state.showProjectsDashboard) return;
+  const dataUrl = sceneCanvasRef.value?.captureScreenshot();
+  if (!dataUrl) return;
+  // sendBeacon ensures delivery even as the page unloads (POST only)
+  navigator.sendBeacon(
+    `/api/projects/${projectId}/thumbnail`,
+    new Blob([JSON.stringify({ thumbnail: dataUrl })], {
+      type: "application/json",
+    }),
+  );
+}
+
+// ---- Dashboard ----
+async function onDashboardOpenProject(id: string) {
+  await captureAndSaveThumbnailIfNeeded();
+  await store.selectProject(id);
+  store.setShowProjectsDashboard(false);
+}
+
+async function onDashboardNewProject() {
+  const name = prompt("Nazwa nowego projektu:", "Nowy projekt");
+  if (name?.trim()) {
+    await captureAndSaveThumbnailIfNeeded();
+    await store.createProject(name.trim());
+    store.setShowProjectsDashboard(false);
+  }
+}
+
+async function captureAndSaveThumbnailIfNeeded() {
+  if (store.state.currentProjectId && !store.state.showProjectsDashboard) {
+    await captureAndSaveThumbnail();
+  }
+}
+
+async function onBackToDashboard() {
+  await captureAndSaveThumbnail();
+  store.setShowProjectsDashboard(true);
+}
 
 // ---- Hamburger / Projects modal ----
 function onHamburgerClick() {

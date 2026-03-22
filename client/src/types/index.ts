@@ -8,6 +8,7 @@ export const ProjectSchema = z.object({
   description: z.string().default(""),
   grid_size_mm: z.number().default(100),
   grid_visible: z.number().default(1),
+  thumbnail: z.string().nullable().optional(),
   created_at: z.number(),
   updated_at: z.number(),
 });
