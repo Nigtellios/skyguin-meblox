@@ -155,7 +155,7 @@ import ObjectsPanel from "./components/ObjectsPanel/ObjectsPanel.vue";
 import ProjectsDashboard from "./components/ProjectsDashboard/ProjectsDashboard.vue";
 import ProjectsModal from "./components/ProjectsModal/ProjectsModal.vue";
 import RelationsPanel from "./components/RelationsPanel/RelationsPanel.vue";
-import type SceneCanvas from "./components/SceneCanvas/SceneCanvas.vue";
+import SceneCanvas from "./components/SceneCanvas/SceneCanvas.vue";
 import ToolButton from "./components/ToolButton/ToolButton.vue";
 import { useAppStore } from "./composables/useAppStore";
 import type { AppPanel, SceneMode } from "./types";

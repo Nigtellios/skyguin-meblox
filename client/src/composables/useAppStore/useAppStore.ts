@@ -192,10 +192,8 @@ export const useAppStore = defineStore("app", () => {
       (p) => p.id === state.currentProjectId,
     );
     if (idx >= 0) {
-      state.projects[idx] = updated;
-      state.projects.sort((a, b) =>
-        a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0,
-      );
+      state.projects.splice(idx, 1);
+      state.projects.unshift(updated);
     }
   }
 
@@ -203,10 +201,8 @@ export const useAppStore = defineStore("app", () => {
     const updated = await api.projects.update(id, { name });
     const idx = state.projects.findIndex((p) => p.id === id);
     if (idx >= 0) {
-      state.projects[idx] = updated;
-      state.projects.sort((a, b) =>
-        a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0,
-      );
+      state.projects.splice(idx, 1);
+      state.projects.unshift(updated);
     }
   }
 
@@ -214,10 +210,8 @@ export const useAppStore = defineStore("app", () => {
     const updated = await api.projects.update(id, { thumbnail });
     const idx = state.projects.findIndex((p) => p.id === id);
     if (idx >= 0) {
-      state.projects[idx] = updated;
-      state.projects.sort((a, b) =>
-        a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0,
-      );
+      state.projects.splice(idx, 1);
+      state.projects.unshift(updated);
     }
   }
 
