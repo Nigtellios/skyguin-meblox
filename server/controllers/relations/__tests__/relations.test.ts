@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { createDatabase } from "../../../db/database";
 import type {
   FurnitureObjectRow,
+  ObjectRelationPayload,
   ObjectRelationRow,
   ProjectRow,
 } from "../../../types";
@@ -48,7 +49,7 @@ async function createObject(
 }
 
 async function createRelation(
-  body: Record<string, unknown>,
+  body: ObjectRelationPayload,
 ): Promise<ObjectRelationRow> {
   const handlers = createRelationHandlers(database);
   const req = new Request(
@@ -59,9 +60,9 @@ async function createRelation(
       body: JSON.stringify(body),
     },
   );
-  return (await (
-    await handlers.createRelation(req, { projectId })
-  ).json()) as ObjectRelationRow;
+  const response = await handlers.createRelation(req, { projectId });
+  expect(response.status).toBe(201);
+  return (await response.json()) as ObjectRelationRow;
 }
 
 async function updateObject(
