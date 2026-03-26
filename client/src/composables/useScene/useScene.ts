@@ -12,6 +12,9 @@ const FACE_HIGHLIGHT_OFFSET = 0.001; // small offset to avoid z-fighting with th
 const SNAP_FACE_MARKER_RADIUS = 0.01;
 const SNAP_EDGE_MARKER_RADIUS = 0.012;
 const SNAP_SELECTED_SCALE = 1.35;
+const THUMBNAIL_WIDTH = 400;
+const THUMBNAIL_HEIGHT = 225;
+const THUMBNAIL_JPEG_QUALITY = 0.75;
 
 type SceneSnapAnchorMarker = {
   objectId: string;
@@ -729,6 +732,26 @@ export function useScene(canvas: HTMLCanvasElement) {
     objectMeshMap.clear();
   }
 
+  function captureScreenshot(): string {
+    try {
+      // Force a fresh render so the framebuffer is current
+      renderer.render(scene, camera);
+      // Draw the main canvas scaled down onto an off-screen canvas
+      const offscreen = document.createElement("canvas");
+      offscreen.width = THUMBNAIL_WIDTH;
+      offscreen.height = THUMBNAIL_HEIGHT;
+      const ctx = offscreen.getContext("2d");
+      if (!ctx) {
+        return "";
+      }
+      ctx.drawImage(canvas, 0, 0, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
+      return offscreen.toDataURL("image/jpeg", THUMBNAIL_JPEG_QUALITY);
+    } catch (error) {
+      console.error("Failed to capture screenshot", error);
+      return "";
+    }
+  }
+
   onUnmounted(dispose);
 
   return {
@@ -755,5 +778,6 @@ export function useScene(canvas: HTMLCanvasElement) {
     updateObject,
     removeObject,
     dispose,
+    captureScreenshot,
   };
 }
