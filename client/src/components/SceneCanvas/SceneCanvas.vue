@@ -1,8 +1,8 @@
 <template>
-  <div ref="viewportRef" class="relative h-full w-full overflow-hidden">
+  <div ref="viewportRef" class="absolute inset-0 overflow-hidden">
     <canvas
       ref="canvasRef"
-      class="block h-full w-full"
+      class="absolute inset-0 block h-full w-full"
       :class="shouldShowHoverPreview ? 'cursor-crosshair' : ''"
       @mousedown="onMouseDown"
       @mousemove="onMouseMove"
@@ -148,6 +148,13 @@ import {
   RELATION_TYPE_LABELS,
 } from "../../types";
 import AddObjectDialog from "../AddObjectDialog/AddObjectDialog.vue";
+import {
+  beginPointerGesture,
+  shouldDeselectFromCanvasClick,
+  updatePointerGesture,
+  wasPointerDrag,
+  type PointerGestureState,
+} from "./sceneCanvasInteractions";
 
 const ATTACH_SOURCE_BADGE_Y_OFFSET = "-150%";
 
@@ -177,6 +184,7 @@ const attachSourceOverlay = ref<{
   y: number;
   name: string;
 } | null>(null);
+const pointerGesture = ref<PointerGestureState | null>(null);
 
 const contextMenu = ref({
   visible: false,
@@ -436,6 +444,8 @@ function onMouseDown(e: MouseEvent) {
   if (!scene) return;
   if (e.button !== 0) return;
 
+   pointerGesture.value = beginPointerGesture(e);
+
   if (shouldShowHoverPreview.value || isSnapAnchorMode.value) return;
 
   const id = scene.pickObject(e);
@@ -476,6 +486,7 @@ function onMouseDown(e: MouseEvent) {
 
 function onMouseMove(e: MouseEvent) {
   if (!scene) return;
+  pointerGesture.value = updatePointerGesture(pointerGesture.value, e);
   if (!shouldShowHoverPreview.value) return;
 
   const hit = scene.pickObjectWithFace(e);
@@ -498,7 +509,10 @@ function onMouseLeave() {
 
 async function onClick(e: MouseEvent) {
   if (!scene) return;
-  if (scene.isDragging.value) return;
+  const currentGesture = pointerGesture.value;
+  pointerGesture.value = null;
+
+  if (scene.isDragging.value || wasPointerDrag(currentGesture)) return;
   if (contextMenu.value.visible) {
     closeContextMenu();
     return;
@@ -525,7 +539,8 @@ async function onClick(e: MouseEvent) {
     return;
   }
 
-  const id = scene.pickObject(e);
+  const clickTarget = scene.pickSceneTarget(e);
+  const id = clickTarget.type === "object" ? clickTarget.id : null;
 
   if (isAttachMode.value) {
     if (!id) return;
@@ -554,7 +569,13 @@ async function onClick(e: MouseEvent) {
 
   if (id) {
     store.selectObject(id, isMulti);
-  } else if (!isMulti) {
+  } else if (
+    shouldDeselectFromCanvasClick({
+      gesture: currentGesture,
+      clickTarget,
+      isMultiSelect: isMulti,
+    })
+  ) {
     store.deselectAll();
     if (store.state.activePanel === "object-props") {
       store.setActivePanel("none");

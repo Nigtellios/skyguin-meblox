@@ -56,7 +56,7 @@
     </div>
 
     <!-- Main Canvas Area -->
-    <div class="flex-1 relative overflow-hidden">
+    <div class="flex-1 min-h-0 min-w-0 relative overflow-hidden">
       <SceneCanvas
         ref="sceneCanvasRef"
         @snap-target-selected="onSnapTargetSelected"
@@ -155,7 +155,7 @@ import ObjectsPanel from "./components/ObjectsPanel/ObjectsPanel.vue";
 import ProjectsDashboard from "./components/ProjectsDashboard/ProjectsDashboard.vue";
 import ProjectsModal from "./components/ProjectsModal/ProjectsModal.vue";
 import RelationsPanel from "./components/RelationsPanel/RelationsPanel.vue";
-import type SceneCanvas from "./components/SceneCanvas/SceneCanvas.vue";
+import SceneCanvas from "./components/SceneCanvas/SceneCanvas.vue";
 import ToolButton from "./components/ToolButton/ToolButton.vue";
 import { useAppStore } from "./composables/useAppStore";
 import {
@@ -354,12 +354,13 @@ async function captureAndSaveThumbnailIfNeeded() {
 
 async function onBackToDashboard() {
   await captureAndSaveThumbnail();
-  store.setShowProjectsDashboard(true);
+  store.openProjectsDashboard();
 }
 
 // ---- Hamburger / Projects modal ----
-function onHamburgerClick() {
-  store.setShowProjectsModal(true);
+async function onHamburgerClick() {
+  await captureAndSaveThumbnailIfNeeded();
+  store.openProjectsDashboard();
 }
 
 async function onProjectSelect(id: string) {

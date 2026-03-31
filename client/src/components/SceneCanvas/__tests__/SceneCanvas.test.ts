@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import { anchorMarkerWorldPos, getObjectSnapAnchors } from "../../../lib/snapAnchors";
 import {
-  anchorMarkerWorldPos,
-  getObjectSnapAnchors,
-} from "../../../lib/snapAnchors/snapAnchors";
+  beginPointerGesture,
+  CANVAS_CLICK_DRAG_THRESHOLD_PX,
+  shouldDeselectFromCanvasClick,
+  updatePointerGesture,
+  wasPointerDrag,
+} from "../sceneCanvasInteractions";
 
-// SceneCanvas is the main 3D rendering area using Three.js.
-// It handles object selection, drag-and-drop, snap mode, and relation overlays.
-// These tests verify the pure helper logic used by the canvas.
 describe("SceneCanvas", () => {
   const sampleObject = {
     id: "obj",
@@ -46,40 +47,80 @@ describe("SceneCanvas", () => {
     expect(markerPos.x).toBeGreaterThan(sampleObject.position_x);
   });
 
-  test("shouldShowHoverPreview logic requires correct scene mode", () => {
-    function shouldShowHoverPreview(sceneMode: string, snapPhase: string) {
-      return sceneMode === "snap" || snapPhase !== "none";
-    }
+  test("pointer gesture stays a click while movement remains below the drag threshold", () => {
+    let gesture: ReturnType<typeof beginPointerGesture> | null =
+      beginPointerGesture({ clientX: 100, clientY: 100 });
 
-    expect(shouldShowHoverPreview("snap", "none")).toBe(true);
-    expect(shouldShowHoverPreview("select", "source")).toBe(true);
-    expect(shouldShowHoverPreview("select", "none")).toBe(false);
-    expect(shouldShowHoverPreview("move", "none")).toBe(false);
+    gesture = updatePointerGesture(
+      gesture,
+      {
+        clientX: 100 + CANVAS_CLICK_DRAG_THRESHOLD_PX - 1,
+        clientY: 100,
+      },
+    );
+
+    expect(wasPointerDrag(gesture)).toBe(false);
   });
 
-  test("context menu position is clamped to viewport bounds", () => {
-    function clampMenuPosition(
-      x: number,
-      y: number,
-      viewportWidth: number,
-      viewportHeight: number,
-      menuWidth = 160,
-      menuHeight = 120,
-    ) {
-      return {
-        x: Math.min(x, viewportWidth - menuWidth),
-        y: Math.min(y, viewportHeight - menuHeight),
-      };
-    }
+  test("pointer gesture becomes a drag after exceeding the threshold", () => {
+    let gesture: ReturnType<typeof beginPointerGesture> | null =
+      beginPointerGesture({ clientX: 10, clientY: 10 });
 
-    const pos = clampMenuPosition(1000, 900, 1024, 768);
-    expect(pos.x).toBeLessThanOrEqual(1024 - 160);
-    expect(pos.y).toBeLessThanOrEqual(768 - 120);
+    gesture = updatePointerGesture(gesture, {
+      clientX: 10 + CANVAS_CLICK_DRAG_THRESHOLD_PX,
+      clientY: 10,
+    });
+
+    expect(wasPointerDrag(gesture)).toBe(true);
   });
 
-  test("add position defaults to world origin coordinates", () => {
-    const addPosition = { x: 0, z: 0 };
-    expect(addPosition.x).toBe(0);
-    expect(addPosition.z).toBe(0);
+  test("clear floor click without modifiers deselects the current object", () => {
+    const gesture = beginPointerGesture({ clientX: 40, clientY: 50 });
+
+    expect(
+      shouldDeselectFromCanvasClick({
+        gesture,
+        clickTarget: { type: "floor" },
+        isMultiSelect: false,
+      }),
+    ).toBe(true);
+  });
+
+  test("background click after dragging the camera does not deselect", () => {
+    let gesture: ReturnType<typeof beginPointerGesture> | null =
+      beginPointerGesture({ clientX: 40, clientY: 50 });
+    gesture = updatePointerGesture(gesture, { clientX: 60, clientY: 50 });
+
+    expect(
+      shouldDeselectFromCanvasClick({
+        gesture,
+        clickTarget: { type: "background" },
+        isMultiSelect: false,
+      }),
+    ).toBe(false);
+  });
+
+  test("clicking another object never triggers background deselection logic", () => {
+    const gesture = beginPointerGesture({ clientX: 5, clientY: 5 });
+
+    expect(
+      shouldDeselectFromCanvasClick({
+        gesture,
+        clickTarget: { type: "object", id: "cabinet-2" },
+        isMultiSelect: false,
+      }),
+    ).toBe(false);
+  });
+
+  test("multi-select modifier preserves selection even on empty background click", () => {
+    const gesture = beginPointerGesture({ clientX: 5, clientY: 5 });
+
+    expect(
+      shouldDeselectFromCanvasClick({
+        gesture,
+        clickTarget: { type: "background" },
+        isMultiSelect: true,
+      }),
+    ).toBe(false);
   });
 });

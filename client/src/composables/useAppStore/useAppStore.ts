@@ -48,7 +48,7 @@ function createInitialState() {
     sceneMode: "select" as SceneMode,
     contextMode: "none" as ContextMode,
     showProjectsModal: false,
-    showProjectsDashboard: false,
+    showProjectsDashboard: true,
     relationEditorMode: "visual" as RelationEditorMode,
     relationAttachSourceId: null as string | null,
     relationAttachField: "position_x" as ObjectRelation["source_field"],
@@ -626,6 +626,11 @@ export const useAppStore = defineStore("app", () => {
     state.showProjectsModal = show;
   }
 
+  function openProjectsDashboard() {
+    state.showProjectsModal = false;
+    state.showProjectsDashboard = true;
+  }
+
   function setShowProjectsDashboard(show: boolean) {
     state.showProjectsDashboard = show;
   }
@@ -903,6 +908,7 @@ export const useAppStore = defineStore("app", () => {
     setSceneMode,
     setContextMode,
     setShowProjectsModal,
+    openProjectsDashboard,
     setShowProjectsDashboard,
     setRelationEditorMode,
     setRelationAttachSource,

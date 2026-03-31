@@ -15,6 +15,67 @@ const SNAP_SELECTED_SCALE = 1.35;
 const THUMBNAIL_WIDTH = 400;
 const THUMBNAIL_HEIGHT = 225;
 const THUMBNAIL_JPEG_QUALITY = 0.75;
+const MIN_RENDER_SIZE = 1;
+
+export const DEFAULT_SHADOW_MAP_TYPE = THREE.PCFShadowMap;
+
+type SceneHitLike = {
+  name?: string;
+  userData?: {
+    type?: string;
+    id?: string;
+  };
+};
+
+export type SceneClickTarget =
+  | { type: "object"; id: string }
+  | { type: "floor" }
+  | { type: "background" };
+
+export function resolveSceneClickTargetFromHits(
+  hits: readonly SceneHitLike[],
+): SceneClickTarget {
+  for (const hit of hits) {
+    const id = hit.userData?.id;
+    if (hit.userData?.type === "furniture" && typeof id === "string") {
+      return { type: "object", id };
+    }
+    if (hit.name === "__floor__") {
+      return { type: "floor" };
+    }
+  }
+
+  return { type: "background" };
+}
+
+type CanvasSizeSource = Pick<
+  HTMLCanvasElement,
+  "clientWidth" | "clientHeight" | "getBoundingClientRect" | "parentElement"
+>;
+
+export function resolveCanvasRenderSize(canvas: CanvasSizeSource): {
+  width: number;
+  height: number;
+} {
+  const rect = canvas.getBoundingClientRect();
+  const parentWidth = canvas.parentElement?.clientWidth ?? 0;
+  const parentHeight = canvas.parentElement?.clientHeight ?? 0;
+
+  return {
+    width: Math.max(
+      MIN_RENDER_SIZE,
+      Math.round(rect.width),
+      canvas.clientWidth,
+      parentWidth,
+    ),
+    height: Math.max(
+      MIN_RENDER_SIZE,
+      Math.round(rect.height),
+      canvas.clientHeight,
+      parentHeight,
+    ),
+  };
+}
 
 type SceneSnapAnchorMarker = {
   objectId: string;
@@ -29,6 +90,7 @@ type SceneSnapAnchorMarker = {
 export function useScene(canvas: HTMLCanvasElement) {
   const selectedIds = ref<Set<string>>(new Set());
   const objectMeshMap = new Map<string, THREE.Mesh>();
+  const initialCanvasSize = resolveCanvasRenderSize(canvas);
 
   // ---- Renderer ----
   const renderer = new THREE.WebGLRenderer({
@@ -37,9 +99,9 @@ export function useScene(canvas: HTMLCanvasElement) {
     alpha: false,
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+  renderer.setSize(initialCanvasSize.width, initialCanvasSize.height, false);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = DEFAULT_SHADOW_MAP_TYPE;
   renderer.setClearColor(0x1a1a2e);
 
   // ---- Scene ----
@@ -63,7 +125,7 @@ export function useScene(canvas: HTMLCanvasElement) {
   // ---- Camera ----
   const camera = new THREE.PerspectiveCamera(
     45,
-    canvas.clientWidth / canvas.clientHeight,
+    initialCanvasSize.width / initialCanvasSize.height,
     0.01,
     1000,
   );
@@ -309,16 +371,21 @@ export function useScene(canvas: HTMLCanvasElement) {
   }
 
   function pickObject(event: MouseEvent): string | null {
+    const target = pickSceneTarget(event);
+    return target.type === "object" ? target.id : null;
+  }
+
+  function pickSceneTarget(event: MouseEvent): SceneClickTarget {
     updatePointerFromMouse(event);
     raycaster.setFromCamera(pointer, camera);
-    const meshes = Array.from(objectMeshMap.values());
-    const intersects = raycaster.intersectObjects(meshes, false);
+    const intersects = raycaster.intersectObjects(
+      [...objectMeshMap.values(), floor],
+      false,
+    );
 
-    if (intersects.length > 0) {
-      const hit = intersects[0].object as THREE.Mesh;
-      return (hit.userData.id as string) || null;
-    }
-    return null;
+    return resolveSceneClickTargetFromHits(
+      intersects.map((hit) => hit.object as SceneHitLike),
+    );
   }
 
   function pickObjectWithFace(
@@ -699,15 +766,18 @@ export function useScene(canvas: HTMLCanvasElement) {
 
   // ---- Resize ----
   function resize() {
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
+    const { width: w, height: h } = resolveCanvasRenderSize(canvas);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    renderer.setSize(w, h);
+    renderer.setSize(w, h, false);
   }
 
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(canvas);
+  if (canvas.parentElement) {
+    resizeObserver.observe(canvas.parentElement);
+  }
+  requestAnimationFrame(resize);
 
   // ---- Render Loop ----
   let animFrameId: number;
@@ -764,6 +834,7 @@ export function useScene(canvas: HTMLCanvasElement) {
     isDragging,
     buildGrid,
     syncObjects,
+    pickSceneTarget,
     pickObject,
     pickObjectWithFace,
     setHoverHighlight,
