@@ -38,19 +38,22 @@ async function createProjectFixture() {
     body: JSON.stringify({ name: projectName }),
   });
 
-  const object = await request<FurnitureObject>(`/projects/${project.id}/objects`, {
-    method: "POST",
-    body: JSON.stringify({
-      name: "Smoke Cabinet",
-      width: 600,
-      height: 720,
-      depth: 560,
-      position_x: 0,
-      position_y: 0,
-      position_z: 0,
-      color: "#8B7355",
-    }),
-  });
+  const object = await request<FurnitureObject>(
+    `/projects/${project.id}/objects`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        name: "Smoke Cabinet",
+        width: 600,
+        height: 720,
+        depth: 560,
+        position_x: 0,
+        position_y: 0,
+        position_z: 0,
+        color: "#8B7355",
+      }),
+    },
+  );
 
   return { project, object };
 }
@@ -96,7 +99,10 @@ async function openProjectFromDashboard(
   page: import("playwright").Page,
   project: Project,
 ) {
-  const projectTile = page.locator("button").filter({ hasText: project.name }).first();
+  const projectTile = page
+    .locator("button")
+    .filter({ hasText: project.name })
+    .first();
   await projectTile.waitFor({ state: "visible" });
   await projectTile.click();
   await page.getByText(project.name, { exact: true }).waitFor();
@@ -116,7 +122,9 @@ async function run() {
       "--enable-unsafe-swiftshader",
     ],
   });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 900 },
+  });
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
   const consoleWarnings: string[] = [];
@@ -207,4 +215,3 @@ async function run() {
 }
 
 await run();
-

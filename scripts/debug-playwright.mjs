@@ -52,4 +52,3 @@ console.log(
 
 await browser.close();
 await fetch(`${apiUrl}/projects/${project.id}`, { method: "DELETE" });
-

@@ -42,9 +42,7 @@ export function updatePointerGesture(
   return gesture;
 }
 
-export function wasPointerDrag(
-  gesture: PointerGestureState | null,
-): boolean {
+export function wasPointerDrag(gesture: PointerGestureState | null): boolean {
   return gesture?.exceededDragThreshold ?? false;
 }
 
@@ -62,4 +60,3 @@ export function shouldDeselectFromCanvasClick(options: {
     options.clickTarget.type === "background"
   );
 }
-
