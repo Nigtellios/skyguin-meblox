@@ -10,12 +10,77 @@ export type BuilderNodeLayout = {
 export const BUILDER_NODE_WIDTH = 280;
 export const BUILDER_NODE_HEADER_HEIGHT = 44;
 export const BUILDER_NODE_ROW_HEIGHT = 34;
-export const BUILDER_NODE_GAP_X = 340;
-export const BUILDER_NODE_GAP_Y = 240;
-export const BUILDER_LAYOUT_PADDING = 48;
+export const BUILDER_NODE_GAP_X = 420;
+export const BUILDER_NODE_GAP_Y = 280;
+export const BUILDER_LAYOUT_PADDING = 60;
 export const BUILDER_LAYOUT_COLUMNS = 3;
 export const BUILDER_BOUNDARY_HEIGHT = 860;
-export const RELATION_LABEL_CHAR_WIDTH_ESTIMATE = 7.2;
+export const RELATION_LABEL_CHAR_WIDTH_ESTIMATE = 8;
+
+export type BuilderViewState = {
+  zoom: number;
+  panX: number;
+  panY: number;
+};
+
+const BUILDER_STORAGE_KEY_PREFIX = "vb_layout_";
+const BUILDER_VIEW_STORAGE_KEY_PREFIX = "vb_view_";
+
+export function loadBuilderLayout(
+  projectId: string,
+): Record<string, BuilderNodeLayout> | null {
+  try {
+    const raw = localStorage.getItem(
+      `${BUILDER_STORAGE_KEY_PREFIX}${projectId}`,
+    );
+    if (!raw) return null;
+    return JSON.parse(raw) as Record<string, BuilderNodeLayout>;
+  } catch {
+    return null;
+  }
+}
+
+export function saveBuilderLayout(
+  projectId: string,
+  layout: Record<string, BuilderNodeLayout>,
+) {
+  try {
+    localStorage.setItem(
+      `${BUILDER_STORAGE_KEY_PREFIX}${projectId}`,
+      JSON.stringify(layout),
+    );
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function loadBuilderViewState(
+  projectId: string,
+): BuilderViewState | null {
+  try {
+    const raw = localStorage.getItem(
+      `${BUILDER_VIEW_STORAGE_KEY_PREFIX}${projectId}`,
+    );
+    if (!raw) return null;
+    return JSON.parse(raw) as BuilderViewState;
+  } catch {
+    return null;
+  }
+}
+
+export function saveBuilderViewState(
+  projectId: string,
+  viewState: BuilderViewState,
+) {
+  try {
+    localStorage.setItem(
+      `${BUILDER_VIEW_STORAGE_KEY_PREFIX}${projectId}`,
+      JSON.stringify(viewState),
+    );
+  } catch {
+    // ignore storage errors
+  }
+}
 
 export function estimateRelationLabelWidth(text: string, minWidthPx: number) {
   return Math.max(minWidthPx, text.length * RELATION_LABEL_CHAR_WIDTH_ESTIMATE);

@@ -59,25 +59,59 @@
 
         <div class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_360px]">
           <div
-            class="relative min-h-0 overflow-auto"
+            ref="canvasContainerRef"
+            class="relative min-h-0 overflow-hidden select-none"
             :class="isAttachEditor ? 'pointer-events-none bg-transparent' : 'bg-slate-950'"
+            @wheel.prevent="onCanvasWheel"
+            @mousedown="onCanvasMouseDown"
           >
             <template v-if="!isAttachEditor">
-              <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_35%),linear-gradient(rgba(30,41,59,0.45)_1px,transparent_1px),linear-gradient(90deg,rgba(30,41,59,0.45)_1px,transparent_1px)] bg-[length:100%_100%,32px_32px,32px_32px]" />
+              <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_35%),linear-gradient(rgba(30,41,59,0.45)_1px,transparent_1px),linear-gradient(90deg,rgba(30,41,59,0.45)_1px,transparent_1px)] bg-[length:100%_100%,32px_32px,32px_32px]" />
 
-              <div class="relative min-h-[1100px] min-w-[1400px] p-8">
-                <svg class="pointer-events-none absolute inset-0 h-full w-full">
+              <!-- Zoom controls -->
+              <div class="pointer-events-auto absolute bottom-3 left-3 z-10 flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900/95 p-1 shadow-lg">
+                <button
+                  class="flex h-7 w-7 items-center justify-center rounded-lg text-lg font-bold text-slate-300 transition hover:bg-slate-700 hover:text-slate-100"
+                  title="Oddal (−)"
+                  @click.stop="zoomStep(-0.15)"
+                >−</button>
+                <span class="min-w-[44px] text-center text-xs font-semibold tabular-nums text-slate-300">{{ Math.round(zoom * 100) }}%</span>
+                <button
+                  class="flex h-7 w-7 items-center justify-center rounded-lg text-lg font-bold text-slate-300 transition hover:bg-slate-700 hover:text-slate-100"
+                  title="Przybliż (+)"
+                  @click.stop="zoomStep(0.15)"
+                >+</button>
+                <div class="mx-0.5 h-5 w-px bg-slate-700" />
+                <button
+                  class="flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-medium text-slate-400 transition hover:bg-slate-700 hover:text-slate-200"
+                  title="Dopasuj wszystko do ekranu"
+                  @click.stop="fitToScreen"
+                >Dopasuj</button>
+                <button
+                  class="flex h-7 items-center gap-1 rounded-lg px-2 text-xs font-medium text-slate-400 transition hover:bg-slate-700 hover:text-slate-200"
+                  title="Zresetuj widok (100%)"
+                  @click.stop="resetView"
+                >100%</button>
+              </div>
+
+              <!-- Infinite canvas (transformed) -->
+              <div
+                class="absolute"
+                style="top: 0; left: 0; width: 4000px; height: 3000px;"
+                :style="{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})`, transformOrigin: '0 0' }"
+              >
+                <svg class="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
                   <defs>
                     <marker
                       id="builder-arrow"
-                      viewBox="0 0 10 10"
-                      refX="9"
-                      refY="5"
-                      markerWidth="8"
-                      markerHeight="8"
+                      viewBox="0 0 12 12"
+                      refX="11"
+                      refY="6"
+                      markerWidth="10"
+                      markerHeight="10"
                       orient="auto"
                     >
-                      <path d="M 0 0 L 10 5 L 0 10 z" fill="#60a5fa" />
+                      <path d="M 0 1 L 11 6 L 0 11 z" fill="#60a5fa" />
                     </marker>
                   </defs>
 
@@ -94,18 +128,19 @@
                     <g>
                       <rect
                         :x="edge.label.x - edge.label.width / 2"
-                        :y="edge.label.y - 11"
+                        :y="edge.label.y - 13"
                         :width="edge.label.width"
-                        height="22"
-                        rx="11"
-                        fill="rgba(15, 23, 42, 0.88)"
-                        stroke="rgba(96, 165, 250, 0.5)"
+                        height="26"
+                        rx="13"
+                        fill="rgba(15, 23, 42, 0.93)"
+                        stroke="rgba(96, 165, 250, 0.6)"
+                        stroke-width="1.5"
                       />
                       <text
                         :x="edge.label.x"
-                        :y="edge.label.y + 4"
+                        :y="edge.label.y + 5"
                         fill="#dbeafe"
-                        font-size="11"
+                        font-size="13"
                         font-weight="600"
                         text-anchor="middle"
                       >
@@ -118,6 +153,7 @@
                 <div
                   v-for="object in store.state.objects"
                   :key="object.id"
+                  data-builder-node
                   class="absolute w-[280px] overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/90 shadow-xl shadow-slate-950/60"
                   :style="{
                     transform: `translate(${layoutFor(object.id).x}px, ${layoutFor(object.id).y}px)`,
@@ -125,7 +161,7 @@
                 >
                   <div
                     class="flex cursor-move items-center justify-between border-b border-slate-700/80 bg-slate-800/90 px-4 py-3"
-                    @mousedown="beginNodeDrag(object.id, $event)"
+                    @mousedown.stop="beginNodeDrag(object.id, $event)"
                   >
                     <div>
                       <div class="text-sm font-semibold text-slate-100">{{ object.name }}</div>
@@ -239,6 +275,9 @@
                     <li>• Chwyć nagłówek karty, aby przesunąć obiekt po builderze.</li>
                     <li>• Przeciągnij np. „Wysokość (Y)” z Bok A na „Wysokość (Y)” w Plecach.</li>
                     <li>• Niebieskie strzałki pokazują aktualne połączenia między parametrami.</li>
+                    <li>• Kółko myszy lub przyciski „−/+” zoomują widok.</li>
+                    <li>• Kliknij i przeciągnij tło, aby przesunąć kanwę.</li>
+                    <li>• Pozycje kart i poziom zoomu są zapisywane automatycznie.</li>
                   </ul>
                 </div>
               </div>
@@ -356,10 +395,12 @@
 import { computed, onUnmounted, reactive, ref, watch } from "vue";
 import { useAppStore } from "../../composables/useAppStore";
 import {
-  BUILDER_BOUNDARY_HEIGHT,
   BUILDER_LAYOUT_PADDING,
+  BUILDER_NODE_GAP_X,
+  BUILDER_NODE_GAP_Y,
   BUILDER_NODE_HEADER_HEIGHT,
   BUILDER_NODE_ROW_HEIGHT,
+  BUILDER_NODE_WIDTH,
   type BuilderField,
   type BuilderNodeLayout,
   canConnectFields,
@@ -368,6 +409,10 @@ import {
   estimateRelationLabelWidth,
   getFieldAnchorPoint,
   getRelationFieldKind,
+  loadBuilderLayout,
+  loadBuilderViewState,
+  saveBuilderLayout,
+  saveBuilderViewState,
 } from "../../lib/relationsBuilder";
 import {
   type FurnitureObject,
@@ -385,8 +430,20 @@ const relations = computed(() => store.state.relations);
 const isAttachEditor = computed(
   () => store.state.relationEditorMode === "attach",
 );
-const EDGE_LABEL_MIN_WIDTH = 120;
-const BUILDER_MIN_BOUNDARY_PADDING = 24;
+const EDGE_LABEL_MIN_WIDTH = 140;
+const BUILDER_MIN_NODE_COORD = 20;
+const CANVAS_WIDTH = 4000;
+const CANVAS_HEIGHT = 3000;
+const MIN_ZOOM = 0.15;
+const MAX_ZOOM = 3;
+// Estimated full height of a node card: header + 2 field groups × (3 rows + group padding)
+const FIELD_GROUP_COUNT = 2;
+const FIELD_GROUP_PADDING = 32;
+const FIELDS_PER_GROUP = 3;
+const BUILDER_NODE_EST_HEIGHT =
+  BUILDER_NODE_HEADER_HEIGHT +
+  FIELD_GROUP_COUNT *
+    (FIELDS_PER_GROUP * BUILDER_NODE_ROW_HEIGHT + FIELD_GROUP_PADDING);
 const fieldGroups = [
   { label: "Wymiary", fields: RELATION_DIMENSION_FIELDS },
   { label: "Pozycja", fields: RELATION_POSITION_FIELDS },
@@ -396,7 +453,12 @@ const builderFields = [
   ...RELATION_POSITION_FIELDS,
 ] as const;
 
+const canvasContainerRef = ref<HTMLElement | null>(null);
 const nodeLayout = ref<Record<string, BuilderNodeLayout>>({});
+const zoom = ref(1);
+const panX = ref(40);
+const panY = ref(40);
+
 const dragState = reactive<{
   objectId: string | null;
   field: BuilderField | null;
@@ -406,18 +468,65 @@ const dragState = reactive<{
 });
 
 let detachNodeDrag: (() => void) | null = null;
+let detachCanvasPan: (() => void) | null = null;
+let viewSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function getProjectId() {
+  return store.state.currentProjectId;
+}
+
+function loadStateForProject(projectId: string) {
+  const saved = loadBuilderLayout(projectId);
+  const view = loadBuilderViewState(projectId);
+  nodeLayout.value = createBuilderLayout(store.state.objects, saved ?? {});
+  if (view) {
+    zoom.value = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.zoom));
+    panX.value = view.panX;
+    panY.value = view.panY;
+  } else {
+    zoom.value = 1;
+    panX.value = 40;
+    panY.value = 40;
+  }
+}
+
+function persistLayout() {
+  const pid = getProjectId();
+  if (!pid) return;
+  saveBuilderLayout(pid, nodeLayout.value);
+}
+
+function persistView() {
+  const pid = getProjectId();
+  if (!pid) return;
+  if (viewSaveTimer !== null) clearTimeout(viewSaveTimer);
+  viewSaveTimer = setTimeout(() => {
+    saveBuilderViewState(pid, {
+      zoom: zoom.value,
+      panX: panX.value,
+      panY: panY.value,
+    });
+  }, 300);
+}
+
+watch(
+  () => store.state.currentProjectId,
+  (projectId) => {
+    if (projectId !== null) {
+      loadStateForProject(projectId);
+    }
+  },
+  { immediate: true },
+);
 
 watch(
   () => store.state.objects,
   (objects) => {
     nodeLayout.value = createBuilderLayout(objects, nodeLayout.value);
+    persistLayout();
   },
-  { deep: true, immediate: true },
+  { deep: true },
 );
-
-onUnmounted(() => {
-  detachNodeDrag?.();
-});
 
 const relationBuilderMode = computed({
   get: () => store.state.relationBuilderMode,
@@ -655,6 +764,7 @@ function beginNodeDrag(objectId: string, event: MouseEvent) {
   const startY = event.clientY;
   const originX = layout.x;
   const originY = layout.y;
+  const currentZoom = zoom.value;
 
   const onMove = (moveEvent: MouseEvent) => {
     nodeLayout.value = {
@@ -662,17 +772,12 @@ function beginNodeDrag(objectId: string, event: MouseEvent) {
       [objectId]: {
         id: objectId,
         x: Math.max(
-          BUILDER_MIN_BOUNDARY_PADDING,
-          originX + moveEvent.clientX - startX,
+          BUILDER_MIN_NODE_COORD,
+          originX + (moveEvent.clientX - startX) / currentZoom,
         ),
         y: Math.max(
-          BUILDER_MIN_BOUNDARY_PADDING,
-          Math.min(
-            BUILDER_BOUNDARY_HEIGHT -
-              BUILDER_NODE_HEADER_HEIGHT -
-              BUILDER_NODE_ROW_HEIGHT,
-            originY + moveEvent.clientY - startY,
-          ),
+          BUILDER_MIN_NODE_COORD,
+          originY + (moveEvent.clientY - startY) / currentZoom,
         ),
       },
     };
@@ -680,6 +785,7 @@ function beginNodeDrag(objectId: string, event: MouseEvent) {
 
   const onUp = () => {
     detachNodeDrag?.();
+    persistLayout();
   };
 
   detachNodeDrag?.();
@@ -691,6 +797,119 @@ function beginNodeDrag(objectId: string, event: MouseEvent) {
     detachNodeDrag = null;
   };
 }
+
+function onCanvasWheel(event: WheelEvent) {
+  const container = canvasContainerRef.value;
+  if (!container) return;
+  const rect = container.getBoundingClientRect();
+  const mouseX = event.clientX - rect.left;
+  const mouseY = event.clientY - rect.top;
+  const delta = event.deltaY < 0 ? 0.12 : -0.12;
+  const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom.value + delta));
+  // Zoom toward mouse cursor
+  panX.value = mouseX - ((mouseX - panX.value) / zoom.value) * newZoom;
+  panY.value = mouseY - ((mouseY - panY.value) / zoom.value) * newZoom;
+  zoom.value = newZoom;
+  persistView();
+}
+
+function onCanvasMouseDown(event: MouseEvent) {
+  // Middle mouse button (button=1) or left-click on background (button=0, no target matching node)
+  if (event.button !== 1 && event.button !== 0) return;
+  if (event.button === 0) {
+    // Only pan if clicking directly on background (not a node)
+    const target = event.target as HTMLElement;
+    if (
+      target.closest("[data-field-chip]") ||
+      target.closest(".cursor-move") ||
+      target.closest("button")
+    )
+      return;
+    // Check if target is a node card or any interactive element inside it
+    if (target.closest("[data-builder-node]")) return;
+  }
+  event.preventDefault();
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const originPanX = panX.value;
+  const originPanY = panY.value;
+
+  const onMove = (moveEvent: MouseEvent) => {
+    panX.value = originPanX + (moveEvent.clientX - startX);
+    panY.value = originPanY + (moveEvent.clientY - startY);
+  };
+
+  const onUp = () => {
+    detachCanvasPan?.();
+    persistView();
+  };
+
+  detachCanvasPan?.();
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
+  detachCanvasPan = () => {
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+    detachCanvasPan = null;
+  };
+}
+
+function zoomStep(delta: number) {
+  const container = canvasContainerRef.value;
+  const centerX = container ? container.clientWidth / 2 : 400;
+  const centerY = container ? container.clientHeight / 2 : 300;
+  const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom.value + delta));
+  panX.value = centerX - ((centerX - panX.value) / zoom.value) * newZoom;
+  panY.value = centerY - ((centerY - panY.value) / zoom.value) * newZoom;
+  zoom.value = newZoom;
+  persistView();
+}
+
+function resetView() {
+  zoom.value = 1;
+  panX.value = 40;
+  panY.value = 40;
+  persistView();
+}
+
+function fitToScreen() {
+  const container = canvasContainerRef.value;
+  if (!container) return;
+  const nodes = Object.values(nodeLayout.value);
+  if (nodes.length === 0) {
+    resetView();
+    return;
+  }
+  const padding = 60;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (const n of nodes) {
+    minX = Math.min(minX, n.x);
+    minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + BUILDER_NODE_WIDTH);
+    maxY = Math.max(maxY, n.y + BUILDER_NODE_EST_HEIGHT);
+  }
+  const contentW = maxX - minX + padding * 2;
+  const contentH = maxY - minY + padding * 2;
+  const viewW = container.clientWidth;
+  const viewH = container.clientHeight;
+  const newZoom = Math.max(
+    MIN_ZOOM,
+    Math.min(MAX_ZOOM, Math.min(viewW / contentW, viewH / contentH)),
+  );
+  panX.value = padding - minX * newZoom + (viewW - contentW * newZoom) / 2;
+  panY.value = padding - minY * newZoom + (viewH - contentH * newZoom) / 2;
+  zoom.value = newZoom;
+  persistView();
+}
+
+onUnmounted(() => {
+  detachNodeDrag?.();
+  detachCanvasPan?.();
+  if (viewSaveTimer !== null) clearTimeout(viewSaveTimer);
+});
 
 async function removeRelation(id: string) {
   if (confirm("Usunąć relację? Obiekty zachowają aktualne parametry.")) {
