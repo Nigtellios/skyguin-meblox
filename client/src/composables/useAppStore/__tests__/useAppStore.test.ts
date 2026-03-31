@@ -188,7 +188,9 @@ describe("useAppStore – undo/redo navigation", () => {
   });
 
   test("undoHistory and redoHistory stop cleanly at the ends of the timeline", async () => {
-    const store = await setupStore({ historyEntries: [makeHistoryEntry("h0", 0)] });
+    const store = await setupStore({
+      historyEntries: [makeHistoryEntry("h0", 0)],
+    });
     const navigateSpy = spyOn(api.history, "navigate").mockResolvedValue({
       success: true,
       objects: [],
@@ -230,7 +232,10 @@ describe("useAppStore – recordHistory branching", () => {
       makeHistoryEntry("h2", 2),
     ];
     const store = await setupStore({ historyEntries: entries });
-    spyOn(api.history, "navigate").mockResolvedValue({ success: true, objects: [] });
+    spyOn(api.history, "navigate").mockResolvedValue({
+      success: true,
+      objects: [],
+    });
 
     await store.undoHistory();
     expect(store.state.historyCurrentIndex).toBe(1);
@@ -332,7 +337,9 @@ describe("useAppStore – project view actions", () => {
       thumbnail: "data:image/jpeg;base64,abc",
       updated_at: 9999,
     };
-    const updateSpy = spyOn(api.projects, "update").mockResolvedValue(withThumb);
+    const updateSpy = spyOn(api.projects, "update").mockResolvedValue(
+      withThumb,
+    );
 
     await store.saveThumbnail("p1", "data:image/jpeg;base64,abc");
 
@@ -352,7 +359,9 @@ describe("useAppStore – project view actions", () => {
       ...makeProject("p1-copy", 2000),
       name: "Project p1 (kopia)",
     };
-    const duplicateSpy = spyOn(api.projects, "duplicate").mockResolvedValue(copy);
+    const duplicateSpy = spyOn(api.projects, "duplicate").mockResolvedValue(
+      copy,
+    );
 
     const result = await store.duplicateProject("p1");
 

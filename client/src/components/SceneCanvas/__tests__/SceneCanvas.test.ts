@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { anchorMarkerWorldPos, getObjectSnapAnchors } from "../../../lib/snapAnchors";
+import {
+  anchorMarkerWorldPos,
+  getObjectSnapAnchors,
+} from "../../../lib/snapAnchors";
 import {
   beginPointerGesture,
   CANVAS_CLICK_DRAG_THRESHOLD_PX,
@@ -51,13 +54,10 @@ describe("SceneCanvas", () => {
     let gesture: ReturnType<typeof beginPointerGesture> | null =
       beginPointerGesture({ clientX: 100, clientY: 100 });
 
-    gesture = updatePointerGesture(
-      gesture,
-      {
-        clientX: 100 + CANVAS_CLICK_DRAG_THRESHOLD_PX - 1,
-        clientY: 100,
-      },
-    );
+    gesture = updatePointerGesture(gesture, {
+      clientX: 100 + CANVAS_CLICK_DRAG_THRESHOLD_PX - 1,
+      clientY: 100,
+    });
 
     expect(wasPointerDrag(gesture)).toBe(false);
   });

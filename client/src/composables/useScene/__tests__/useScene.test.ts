@@ -20,10 +20,11 @@ describe("useScene composable", () => {
     const size = resolveCanvasRenderSize({
       clientWidth: 0,
       clientHeight: 0,
-      getBoundingClientRect: () => ({
-        width: 0,
-        height: 0,
-      } as DOMRect),
+      getBoundingClientRect: () =>
+        ({
+          width: 0,
+          height: 0,
+        }) as DOMRect,
       parentElement: {
         clientWidth: 1280,
         clientHeight: 720,
@@ -37,10 +38,11 @@ describe("useScene composable", () => {
     const size = resolveCanvasRenderSize({
       clientWidth: 600,
       clientHeight: 320,
-      getBoundingClientRect: () => ({
-        width: 640.4,
-        height: 360.2,
-      } as DOMRect),
+      getBoundingClientRect: () =>
+        ({
+          width: 640.4,
+          height: 360.2,
+        }) as DOMRect,
       parentElement: {
         clientWidth: 620,
         clientHeight: 350,
@@ -54,10 +56,11 @@ describe("useScene composable", () => {
     const size = resolveCanvasRenderSize({
       clientWidth: 0,
       clientHeight: 0,
-      getBoundingClientRect: () => ({
-        width: 0,
-        height: 0,
-      } as DOMRect),
+      getBoundingClientRect: () =>
+        ({
+          width: 0,
+          height: 0,
+        }) as DOMRect,
       parentElement: null,
     });
 
@@ -84,7 +87,9 @@ describe("useScene composable", () => {
     expect(resolveSceneClickTargetFromHits([])).toEqual({
       type: "background",
     });
-    expect(resolveSceneClickTargetFromHits([{ name: "ambient-light" }])).toEqual({
+    expect(
+      resolveSceneClickTargetFromHits([{ name: "ambient-light" }]),
+    ).toEqual({
       type: "background",
     });
   });

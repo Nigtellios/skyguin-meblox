@@ -150,10 +150,10 @@ import {
 import AddObjectDialog from "../AddObjectDialog/AddObjectDialog.vue";
 import {
   beginPointerGesture,
+  type PointerGestureState,
   shouldDeselectFromCanvasClick,
   updatePointerGesture,
   wasPointerDrag,
-  type PointerGestureState,
 } from "./sceneCanvasInteractions";
 
 const ATTACH_SOURCE_BADGE_Y_OFFSET = "-150%";
@@ -444,7 +444,7 @@ function onMouseDown(e: MouseEvent) {
   if (!scene) return;
   if (e.button !== 0) return;
 
-   pointerGesture.value = beginPointerGesture(e);
+  pointerGesture.value = beginPointerGesture(e);
 
   if (shouldShowHoverPreview.value || isSnapAnchorMode.value) return;
 
