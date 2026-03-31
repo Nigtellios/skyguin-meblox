@@ -107,7 +107,17 @@ skyguin-meblox/
 - `bun run lint` — kontrolny lint Biome
 - `bun run typecheck` — jeden `tsconfig.json`, sprawdzany przez `tsc` i `vue-tsc`
 - `bun run test:run` — pełne testy w `bun test`
+- `bun run test:regression` — samowystarczalna regresja Playwright: podnosi lokalnie API i Vite, a następnie sprawdza render canvasu, zapis thumbnaila i krytyczne ścieżki UI
+- `bun run test:smoke:project-open` — alias zgodności do `bun run test:regression`
 - `bun run verify:start` — build aplikacji i sprawdzenie, czy startuje i działa ponad 5 sekund
+
+### Zalecana kolejność walidacji zmian
+
+```bash
+bun run typecheck
+bun run test:run
+bun run test:regression
+```
 
 ### Hooki Husky
 
@@ -116,6 +126,7 @@ skyguin-meblox/
 - `bun run lint`
 - `bun run typecheck`
 - `bun run test:run`
+- `bun run test:regression`
 
 **pre-push**
 - `bun run verify:start`

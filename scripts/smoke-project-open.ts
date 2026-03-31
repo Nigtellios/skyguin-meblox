@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 
-type Project = { id: string; name: string };
+type Project = { id: string; name: string; thumbnail?: string | null };
 type FurnitureObject = { id: string; name: string };
 
 const uiUrl = process.env.MEBLOX_UI_URL ?? "http://127.0.0.1:5173";
@@ -64,6 +64,24 @@ async function deleteProjectFixture(projectId: string) {
   }).catch(() => undefined);
 }
 
+async function waitForProjectThumbnail(projectId: string, timeoutMs = 10_000) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const projects = await request<Project[]>("/projects");
+    const project = projects.find((item) => item.id === projectId);
+    if (project?.thumbnail) {
+      return project.thumbnail;
+    }
+
+    await Bun.sleep(250);
+  }
+
+  throw new Error(
+    `Project ${projectId} thumbnail was not saved within ${timeoutMs}ms.`,
+  );
+}
+
 async function readCanvasMetrics(page: import("playwright").Page) {
   return page.locator("canvas").evaluate((element) => {
     const canvas = element as HTMLCanvasElement;
@@ -95,6 +113,30 @@ function assertCanvasMetrics(metrics: Record<string, number>) {
   }
 }
 
+async function readCanvasSnapshot(page: import("playwright").Page) {
+  return page.locator("canvas").evaluate((element) => {
+    const canvas = element as HTMLCanvasElement;
+    const dataUrl = canvas.toDataURL("image/png");
+
+    return {
+      dataUrl,
+      length: dataUrl.length,
+    };
+  });
+}
+
+function assertCanvasSnapshot(snapshot: { dataUrl: string; length: number }) {
+  if (!snapshot.dataUrl.startsWith("data:image/png;base64,")) {
+    throw new Error("Canvas snapshot did not return a PNG data URL.");
+  }
+
+  if (snapshot.length < 1_000) {
+    throw new Error(
+      `Canvas snapshot is unexpectedly small and suggests the renderer did not paint: ${snapshot.length}`,
+    );
+  }
+}
+
 async function openProjectFromDashboard(
   page: import("playwright").Page,
   project: Project,
@@ -107,6 +149,7 @@ async function openProjectFromDashboard(
   await projectTile.click();
   await page.getByText(project.name, { exact: true }).waitFor();
   await page.locator("canvas").waitFor({ state: "visible" });
+  await page.locator('button[title="Wróć do projektów"]').waitFor();
 }
 
 async function run() {
@@ -150,6 +193,8 @@ async function run() {
 
     const initialCanvasMetrics = await readCanvasMetrics(page);
     assertCanvasMetrics(initialCanvasMetrics);
+    const initialCanvasSnapshot = await readCanvasSnapshot(page);
+    assertCanvasSnapshot(initialCanvasSnapshot);
 
     const canvas = page.locator("canvas");
     const box = await canvas.boundingBox();
@@ -178,6 +223,29 @@ async function run() {
     await page.getByRole("button", { name: "Dodaj element" }).waitFor();
     await deselectButton.waitFor({ state: "detached" });
 
+    await page.locator('button[title="Wróć do projektów"]').click();
+    await page.getByText("Wybierz projekt lub utwórz nowy").waitFor();
+
+    const savedThumbnail = await waitForProjectThumbnail(project.id);
+    if (!savedThumbnail.startsWith("data:image/jpeg;base64,")) {
+      throw new Error("Saved project thumbnail is not a JPEG data URL.");
+    }
+
+    const projectTile = page
+      .locator("button")
+      .filter({ hasText: project.name })
+      .first();
+    const thumbnailImage = projectTile.locator("img");
+    await thumbnailImage.waitFor();
+    const thumbnailSrc = await thumbnailImage.getAttribute("src");
+    if (thumbnailSrc !== savedThumbnail) {
+      throw new Error(
+        "Dashboard thumbnail does not match the saved project thumbnail.",
+      );
+    }
+
+    await openProjectFromDashboard(page, project);
+
     await page.locator('button[title="Projekty"]').click();
     await page.getByText("Wybierz projekt lub utwórz nowy").waitFor();
 
@@ -185,6 +253,8 @@ async function run() {
 
     const reopenedCanvasMetrics = await readCanvasMetrics(page);
     assertCanvasMetrics(reopenedCanvasMetrics);
+    const reopenedCanvasSnapshot = await readCanvasSnapshot(page);
+    assertCanvasSnapshot(reopenedCanvasSnapshot);
 
     const shadowDeprecationWarnings = consoleWarnings.filter((message) =>
       message.includes("PCFSoftShadowMap has been deprecated"),
@@ -206,7 +276,10 @@ async function run() {
 
     console.log("Smoke test passed.", {
       initialCanvasMetrics,
+      initialCanvasSnapshotLength: initialCanvasSnapshot.length,
       reopenedCanvasMetrics,
+      reopenedCanvasSnapshotLength: reopenedCanvasSnapshot.length,
+      savedThumbnailLength: savedThumbnail.length,
     });
   } finally {
     await browser.close();

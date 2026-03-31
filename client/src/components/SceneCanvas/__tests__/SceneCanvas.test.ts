@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import {
   anchorMarkerWorldPos,
   getObjectSnapAnchors,
@@ -10,6 +11,11 @@ import {
   updatePointerGesture,
   wasPointerDrag,
 } from "../sceneCanvasInteractions";
+
+const appSource = readFileSync(
+  new URL("../../../App.vue", import.meta.url),
+  "utf8",
+);
 
 describe("SceneCanvas", () => {
   const sampleObject = {
@@ -122,5 +128,14 @@ describe("SceneCanvas", () => {
         isMultiSelect: true,
       }),
     ).toBe(false);
+  });
+
+  test("App imports SceneCanvas as a runtime component", () => {
+    expect(appSource).toContain(
+      'import SceneCanvas from "./components/SceneCanvas/SceneCanvas.vue";',
+    );
+    expect(appSource).not.toContain(
+      'import type SceneCanvas from "./components/SceneCanvas/SceneCanvas.vue";',
+    );
   });
 });

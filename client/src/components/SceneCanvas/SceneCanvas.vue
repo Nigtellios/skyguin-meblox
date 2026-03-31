@@ -210,6 +210,7 @@ const showRelationOverlay = computed(
 
 onMounted(() => {
   if (!canvasRef.value) return;
+  scene?.dispose();
   scene = useScene(canvasRef.value);
 
   syncScene();
@@ -222,7 +223,9 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener("click", closeContextMenu);
   cancelAnimationFrame(overlayFrame);
-  scene?.clearSnapAnchors();
+  pointerGesture.value = null;
+  scene?.dispose();
+  scene = null;
 });
 
 function syncScene() {

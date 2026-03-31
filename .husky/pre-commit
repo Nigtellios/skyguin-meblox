@@ -9,3 +9,4 @@ bun run lint:fix
 bun run lint
 bun run typecheck
 bun run test:run
+bun run test:regression

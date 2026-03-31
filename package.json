@@ -17,7 +17,9 @@
     "lint:fix": "bunx @biomejs/biome check --write .",
     "test": "bun test",
     "test:run": "bun test --bail",
-    "test:smoke:project-open": "bun run scripts/smoke-project-open.ts",
+    "test:regression": "bun run scripts/run-regression.ts",
+    "test:regression:playwright": "bun run scripts/run-regression.ts",
+    "test:smoke:project-open": "bun run test:regression",
     "verify:start": "bun run build && bun run scripts/verify-start.ts",
     "prepare": "husky"
   },

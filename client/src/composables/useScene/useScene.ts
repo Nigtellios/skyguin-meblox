@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { onUnmounted, ref } from "vue";
+import { ref } from "vue";
 import type { SnapAnchorType } from "../../lib/snapAnchors";
 import type { FurnitureObject, GridConfig } from "../../types";
 
@@ -793,6 +793,9 @@ export function useScene(canvas: HTMLCanvasElement) {
     cancelAnimationFrame(animFrameId);
     resizeObserver.disconnect();
     controls.dispose();
+    if (typeof renderer.forceContextLoss === "function") {
+      renderer.forceContextLoss();
+    }
     renderer.dispose();
     clearHoverHighlight();
     clearSnapAnchors();
@@ -821,8 +824,6 @@ export function useScene(canvas: HTMLCanvasElement) {
       return "";
     }
   }
-
-  onUnmounted(dispose);
 
   return {
     scene,
