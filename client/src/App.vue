@@ -158,6 +158,11 @@ import RelationsPanel from "./components/RelationsPanel/RelationsPanel.vue";
 import type SceneCanvas from "./components/SceneCanvas/SceneCanvas.vue";
 import ToolButton from "./components/ToolButton/ToolButton.vue";
 import { useAppStore } from "./composables/useAppStore";
+import {
+  captureProjectThumbnail,
+  saveProjectThumbnail,
+  saveProjectThumbnailIfNeeded,
+} from "./lib/projectThumbnails";
 import type { AppPanel, SceneMode } from "./types";
 
 const store = useAppStore();
@@ -284,23 +289,18 @@ const currentProjectName = computed(() => {
 
 // ---- Screenshot helpers ----
 async function captureAndSaveThumbnail() {
-  const projectId = store.state.currentProjectId;
-  if (!projectId) return;
-  const dataUrl = sceneCanvasRef.value?.captureScreenshot();
-  if (dataUrl) {
-    try {
-      await store.saveThumbnail(projectId, dataUrl);
-    } catch (error) {
-      // Best-effort: log and continue so UI navigation is not blocked
-      console.error("Failed to save project thumbnail:", error);
-    }
-  }
+  await saveProjectThumbnail({
+    projectId: store.state.currentProjectId,
+    sceneCanvasRef: sceneCanvasRef.value,
+    saveThumbnail: (projectId, thumbnail) =>
+      store.saveThumbnail(projectId, thumbnail),
+  });
 }
 
 function onBeforeUnload() {
   const projectId = store.state.currentProjectId;
   if (!projectId || store.state.showProjectsDashboard) return;
-  const dataUrl = sceneCanvasRef.value?.captureScreenshot();
+  const dataUrl = captureProjectThumbnail(sceneCanvasRef.value);
   if (!dataUrl) return;
   const url = `/api/projects/${projectId}/thumbnail`;
   const body = new Blob([JSON.stringify({ thumbnail: dataUrl })], {
@@ -343,9 +343,13 @@ async function onDashboardNewProject() {
 }
 
 async function captureAndSaveThumbnailIfNeeded() {
-  if (store.state.currentProjectId && !store.state.showProjectsDashboard) {
-    await captureAndSaveThumbnail();
-  }
+  await saveProjectThumbnailIfNeeded({
+    projectId: store.state.currentProjectId,
+    showProjectsDashboard: store.state.showProjectsDashboard,
+    sceneCanvasRef: sceneCanvasRef.value,
+    saveThumbnail: (projectId, thumbnail) =>
+      store.saveThumbnail(projectId, thumbnail),
+  });
 }
 
 async function onBackToDashboard() {
@@ -360,6 +364,7 @@ function onHamburgerClick() {
 
 async function onProjectSelect(id: string) {
   if (id !== store.state.currentProjectId) {
+    await captureAndSaveThumbnailIfNeeded();
     await store.selectProject(id);
   }
 }
