@@ -50,6 +50,7 @@ export type FurnitureObjectRow = {
   position_z: number;
   rotation_y: number;
   color: string;
+  material_type: string;
   material_template_id: string | null;
   component_id: string | null;
   is_independent: number;
@@ -106,6 +107,7 @@ export type FurnitureObjectPayload = Partial<
     | "position_z"
     | "rotation_y"
     | "color"
+    | "material_type"
     | "material_template_id"
     | "component_id"
     | "is_independent"

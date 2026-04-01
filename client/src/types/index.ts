@@ -25,6 +25,7 @@ export const FurnitureObjectSchema = z.object({
   position_z: z.number().default(0),
   rotation_y: z.number().default(0),
   color: z.string().default("#8B7355"),
+  material_type: z.string().default("wood"),
   material_template_id: z.string().nullable().default(null),
   component_id: z.string().nullable().default(null),
   is_independent: z.number().default(0),

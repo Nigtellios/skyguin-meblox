@@ -309,6 +309,9 @@ export const useAppStore = defineStore("app", () => {
       if (data.height !== undefined) syncData.height = data.height;
       if (data.depth !== undefined) syncData.depth = data.depth;
       if (data.color !== undefined) syncData.color = data.color;
+      if (data.material_type !== undefined) {
+        syncData.material_type = data.material_type;
+      }
       if (data.material_template_id !== undefined) {
         syncData.material_template_id = data.material_template_id;
       }
@@ -332,6 +335,9 @@ export const useAppStore = defineStore("app", () => {
     }
 
     const label = (() => {
+      if (data.material_type !== undefined) {
+        return `Zmieniono typ materiału: ${updated.name}`;
+      }
       if (data.color !== undefined) return `Zmieniono kolor: ${updated.name}`;
       if (
         data.width !== undefined ||

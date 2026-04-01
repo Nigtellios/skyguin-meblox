@@ -25,6 +25,7 @@ function makeObject(id: string): FurnitureObject {
     position_z: 0,
     rotation_y: 0,
     color: "#8B7355",
+    material_type: "wood",
     material_template_id: null,
     component_id: null,
     is_independent: 0,

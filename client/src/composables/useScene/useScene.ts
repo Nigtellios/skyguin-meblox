@@ -1,6 +1,12 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { ref } from "vue";
+import type { MaterialType } from "../../lib/materialTypes";
+import {
+  MATERIAL_METALNESS,
+  MATERIAL_ROUGHNESS,
+  METALLIC_MATERIALS,
+} from "../../lib/materialTypes";
 import type { SnapAnchorType } from "../../lib/snapAnchors";
 import type { FurnitureObject, GridConfig } from "../../types";
 
@@ -201,10 +207,55 @@ export function useScene(canvas: HTMLCanvasElement) {
   buildGrid({ visible: true, sizeX: 100, sizeY: 100, sizeZ: 100, unit: "mm" });
 
   // ---- Object Materials ----
+  // Cache for shared environment map to avoid recreating for every metallic object
+  let _envMap: THREE.Texture | null = null;
+
+  function getMetalEnvMap(): THREE.Texture {
+    if (!_envMap) {
+      // Create a simple gradient environment map for metallic reflections
+      // This is much cheaper than loading an HDR and provides convincing results
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      const envScene = new THREE.Scene();
+      envScene.background = new THREE.Color(0x444455);
+      // Add a bright upper hemisphere and darker lower to simulate studio lighting
+      const envLight1 = new THREE.DirectionalLight(0xffffff, 2);
+      envLight1.position.set(0, 1, 0);
+      envScene.add(envLight1);
+      const envLight2 = new THREE.DirectionalLight(0xccccdd, 1);
+      envLight2.position.set(1, 0.5, 1);
+      envScene.add(envLight2);
+      _envMap = pmremGenerator.fromScene(envScene, 0.04).texture;
+      pmremGenerator.dispose();
+    }
+    return _envMap;
+  }
+
   function createObjectMaterial(
     color: string,
     selected: boolean,
-  ): THREE.MeshPhongMaterial {
+    materialType?: string,
+  ): THREE.Material {
+    const isMetallic = METALLIC_MATERIALS.has(
+      (materialType ?? "wood") as MaterialType,
+    );
+
+    if (isMetallic) {
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(color),
+        metalness:
+          MATERIAL_METALNESS[materialType as MaterialType] ?? 0.8,
+        roughness:
+          MATERIAL_ROUGHNESS[materialType as MaterialType] ?? 0.35,
+        envMap: getMetalEnvMap(),
+        envMapIntensity: 1.0,
+      });
+      if (selected) {
+        mat.emissive.set(0x2244aa);
+        mat.emissiveIntensity = 0.3;
+      }
+      return mat;
+    }
+
     const mat = new THREE.MeshPhongMaterial({
       color: new THREE.Color(color),
       shininess: 30,
@@ -245,7 +296,11 @@ export function useScene(canvas: HTMLCanvasElement) {
     const d = obj.depth * SCALE;
 
     const geom = new THREE.BoxGeometry(w, h, d);
-    const mat = createObjectMaterial(obj.color, selectedIds.value.has(obj.id));
+    const mat = createObjectMaterial(
+      obj.color,
+      selectedIds.value.has(obj.id),
+      obj.material_type,
+    );
     const mesh = new THREE.Mesh(geom, mat);
 
     mesh.position.set(
@@ -289,16 +344,33 @@ export function useScene(canvas: HTMLCanvasElement) {
       }
     }
 
-    // Update material color
-    const mat = mesh.material as THREE.MeshPhongMaterial;
-    mat.color.set(obj.color);
-    const isSelected = selectedIds.value.has(obj.id);
-    if (isSelected) {
-      mat.emissive.set(0x2244aa);
-      mat.emissiveIntensity = 0.3;
+    // Update material - check if material type changed (need full replacement)
+    const currentMat = mesh.material as THREE.Material;
+    const currentIsMetallic = currentMat instanceof THREE.MeshStandardMaterial;
+    const newIsMetallic = METALLIC_MATERIALS.has(
+      (obj.material_type ?? "wood") as MaterialType,
+    );
+
+    if (currentIsMetallic !== newIsMetallic) {
+      // Material type category changed, need full replacement
+      currentMat.dispose();
+      mesh.material = createObjectMaterial(
+        obj.color,
+        selectedIds.value.has(obj.id),
+        obj.material_type,
+      );
     } else {
-      mat.emissive.set(0x000000);
-      mat.emissiveIntensity = 0;
+      // Same material category, just update color and selection state
+      const mat = mesh.material as THREE.MeshPhongMaterial | THREE.MeshStandardMaterial;
+      mat.color.set(obj.color);
+      const isSelected = selectedIds.value.has(obj.id);
+      if (isSelected) {
+        mat.emissive.set(0x2244aa);
+        mat.emissiveIntensity = 0.3;
+      } else {
+        mat.emissive.set(0x000000);
+        mat.emissiveIntensity = 0;
+      }
     }
 
     // Update position
@@ -347,7 +419,7 @@ export function useScene(canvas: HTMLCanvasElement) {
 
     // Update selection highlights
     for (const [id, mesh] of objectMeshMap) {
-      const mat = mesh.material as THREE.MeshPhongMaterial;
+      const mat = mesh.material as THREE.MeshPhongMaterial | THREE.MeshStandardMaterial;
       if (selIds.includes(id)) {
         mat.emissive.set(0x2244aa);
         mat.emissiveIntensity = 0.3;
@@ -793,6 +865,10 @@ export function useScene(canvas: HTMLCanvasElement) {
     cancelAnimationFrame(animFrameId);
     resizeObserver.disconnect();
     controls.dispose();
+    if (_envMap) {
+      _envMap.dispose();
+      _envMap = null;
+    }
     if (typeof renderer.forceContextLoss === "function") {
       renderer.forceContextLoss();
     }

@@ -65,6 +65,7 @@ export function initializeDatabase(database: Database) {
       position_z REAL DEFAULT 0,
       rotation_y REAL DEFAULT 0,
       color TEXT DEFAULT '#8B7355',
+      material_type TEXT DEFAULT 'wood',
       material_template_id TEXT,
       component_id TEXT,
       is_independent INTEGER DEFAULT 0,
@@ -113,6 +114,18 @@ export function initializeDatabase(database: Database) {
   if (!hasThumbnail || hasThumbnail.cnt === 0) {
     database.exec(
       "ALTER TABLE projects ADD COLUMN thumbnail TEXT DEFAULT NULL",
+    );
+  }
+
+  // Migration: add material_type column if it doesn't exist yet
+  const hasMaterialType = database
+    .query(
+      "SELECT COUNT(*) as cnt FROM pragma_table_info('furniture_objects') WHERE name = 'material_type'",
+    )
+    .get() as { cnt: number };
+  if (!hasMaterialType || hasMaterialType.cnt === 0) {
+    database.exec(
+      "ALTER TABLE furniture_objects ADD COLUMN material_type TEXT DEFAULT 'wood'",
     );
   }
 

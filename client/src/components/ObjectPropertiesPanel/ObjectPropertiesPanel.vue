@@ -140,6 +140,20 @@
         </div>
       </div>
 
+      <!-- Material Type -->
+      <div class="panel-section">
+        <div class="label-text mb-2">Typ materiału</div>
+        <select
+          :value="obj.material_type || 'wood'"
+          class="input-field"
+          @change="onMaterialTypeChange"
+        >
+          <option v-for="mt in MATERIAL_TYPES" :key="mt" :value="mt">
+            {{ MATERIAL_TYPE_LABELS[mt] }}
+          </option>
+        </select>
+      </div>
+
       <!-- Material Template -->
       <div class="panel-section">
         <div class="label-text mb-2">Szablon materiału</div>
@@ -188,6 +202,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useAppStore } from "../../composables/useAppStore";
+import {
+  MATERIAL_DEFAULT_COLORS,
+  MATERIAL_TYPE_LABELS,
+  MATERIAL_TYPES,
+} from "../../lib/materialTypes";
+import type { MaterialType } from "../../lib/materialTypes";
 import { OBJECT_COLOR_PALETTE } from "../../lib/objectPresets";
 import type { FurnitureObject } from "../../types";
 
@@ -207,6 +227,7 @@ type EditableObjectField =
   | "position_z"
   | "rotation_y"
   | "color"
+  | "material_type"
   | "material_template_id";
 
 type NumericObjectField =
@@ -224,6 +245,17 @@ function updateObjectField<Key extends EditableObjectField>(
 ) {
   if (!obj.value) return;
   store.updateObject(obj.value.id, { [field]: value });
+}
+
+function onMaterialTypeChange(event: Event) {
+  const newType = (event.target as HTMLSelectElement).value as MaterialType;
+  if (!obj.value) return;
+  // Update material type and apply default color for the new type
+  const defaultColor = MATERIAL_DEFAULT_COLORS[newType] ?? "#8B7355";
+  store.updateObject(obj.value.id, {
+    material_type: newType,
+    color: defaultColor,
+  });
 }
 
 function updateNumberField(

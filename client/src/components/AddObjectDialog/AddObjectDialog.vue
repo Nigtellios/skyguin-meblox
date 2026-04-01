@@ -43,6 +43,15 @@
             </div>
 
             <div>
+              <label class="label-text block mb-1">Typ materiału</label>
+              <select v-model="form.material_type" class="input-field">
+                <option v-for="mt in MATERIAL_TYPES" :key="mt" :value="mt">
+                  {{ MATERIAL_TYPE_LABELS[mt] }}
+                </option>
+              </select>
+            </div>
+
+            <div>
               <label class="label-text block mb-1">Kolor</label>
               <div class="flex items-center gap-2">
                 <input v-model="form.color" type="color" class="w-10 h-8 rounded cursor-pointer border border-slate-600 bg-transparent" />
@@ -88,8 +97,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from "vue";
+import { computed, reactive, watch } from "vue";
 import { useAppStore } from "../../composables/useAppStore";
+import {
+  MATERIAL_DEFAULT_COLORS,
+  MATERIAL_TYPE_LABELS,
+  MATERIAL_TYPES,
+} from "../../lib/materialTypes";
+import type { MaterialType } from "../../lib/materialTypes";
 import { OBJECT_PRESETS, type ObjectPreset } from "../../lib/objectPresets";
 
 const props = defineProps<{
@@ -111,8 +126,17 @@ const form = reactive({
   height: 720,
   depth: 18,
   color: "#8B7355",
+  material_type: "wood" as MaterialType,
   material_template_id: "",
 });
+
+// When material type changes, apply default color
+watch(
+  () => form.material_type,
+  (newType) => {
+    form.color = MATERIAL_DEFAULT_COLORS[newType] ?? "#8B7355";
+  },
+);
 
 const isValid = computed(
   () => form.name.trim() && form.width > 0 && form.height > 0 && form.depth > 0,
@@ -133,6 +157,7 @@ async function onCreate() {
     height: form.height,
     depth: form.depth,
     color: form.color,
+    material_type: form.material_type,
     material_template_id: form.material_template_id || null,
     position_x: props.initialPosition?.x ?? 0,
     position_z: props.initialPosition?.z ?? 0,
