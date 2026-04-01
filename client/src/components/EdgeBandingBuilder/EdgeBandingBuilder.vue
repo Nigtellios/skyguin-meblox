@@ -202,8 +202,6 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
-import type { MaterialType } from "../../lib/materialTypes";
-import { EDGE_BANDING_MATERIALS } from "../../lib/materialTypes";
 import type { EdgeBandingConfig, FurnitureObject } from "../../types";
 import { DEFAULT_EDGE_BANDING } from "../../types";
 
@@ -345,11 +343,4 @@ function onClose() {
   saveConfig();
   emit("close");
 }
-
-// Check if the material supports edge banding
-const supportsEdgeBanding = computed(() =>
-  EDGE_BANDING_MATERIALS.has(
-    (props.obj.material_type ?? "wood") as MaterialType,
-  ),
-);
 </script>

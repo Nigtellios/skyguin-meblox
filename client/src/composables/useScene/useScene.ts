@@ -232,7 +232,10 @@ export function useScene(canvas: HTMLCanvasElement) {
       envLight2.position.set(1, 0.5, 1);
       envScene.add(envLight2);
       _envMap = pmremGenerator.fromScene(envScene, 0.04).texture;
+      // Dispose temporary resources used for env map generation
       pmremGenerator.dispose();
+      envLight1.dispose();
+      envLight2.dispose();
     }
     return _envMap;
   }
@@ -484,13 +487,13 @@ export function useScene(canvas: HTMLCanvasElement) {
 
     switch (shape) {
       case "sphere": {
-        // Use the average of width/height/depth as diameter
-        const radius = Math.max(w, h, d) / 2;
+        // Use the average of all dimensions as diameter for balanced proportions
+        const radius = (w + h + d) / 6;
         return new THREE.SphereGeometry(radius, 32, 24);
       }
       case "cylinder": {
-        // Width/depth = diameter, height = height
-        const cylRadius = Math.max(w, d) / 2;
+        // Use the average of width/depth as diameter, height stays as cylinder height
+        const cylRadius = (w + d) / 4;
         return new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32);
       }
       case "cube": {
