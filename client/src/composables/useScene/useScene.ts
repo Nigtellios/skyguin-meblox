@@ -14,6 +14,8 @@ import type {
   GridConfig,
 } from "../../types";
 import { DEFAULT_EDGE_BANDING } from "../../types";
+import type { EdgeRoundingConfig } from "../../lib/objectShapes";
+import { DEFAULT_EDGE_ROUNDING } from "../../lib/objectShapes";
 
 // Scale factor: 1 Three.js unit = 1mm
 const SCALE = 0.001; // mm → meters (Three.js world units)
@@ -473,13 +475,136 @@ export function useScene(canvas: HTMLCanvasElement) {
     }
   }
 
-  // ---- Add / Update / Remove Objects ----
-  function addObject(obj: FurnitureObject) {
+  // ---- Geometry creation based on shape ----
+  function createObjectGeometry(obj: FurnitureObject): THREE.BufferGeometry {
     const w = obj.width * SCALE;
     const h = obj.height * SCALE;
     const d = obj.depth * SCALE;
+    const shape = obj.object_shape || "box";
 
-    const geom = new THREE.BoxGeometry(w, h, d);
+    switch (shape) {
+      case "sphere": {
+        // Use the average of width/height/depth as diameter
+        const radius = Math.max(w, h, d) / 2;
+        return new THREE.SphereGeometry(radius, 32, 24);
+      }
+      case "cylinder": {
+        // Width/depth = diameter, height = height
+        const cylRadius = Math.max(w, d) / 2;
+        return new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32);
+      }
+      case "cube": {
+        // Use the largest dimension for all sides
+        const side = Math.max(w, h, d);
+        return new THREE.BoxGeometry(side, side, side);
+      }
+      case "box":
+      default: {
+        // Check for edge rounding
+        const rounding = parseEdgeRounding(obj);
+        if (rounding) {
+          return createRoundedBoxGeometry(w, h, d, rounding);
+        }
+        return new THREE.BoxGeometry(w, h, d);
+      }
+    }
+  }
+
+  function parseEdgeRounding(
+    obj: FurnitureObject,
+  ): EdgeRoundingConfig | null {
+    if (!obj.edge_rounding_json) return null;
+    try {
+      const config = {
+        ...DEFAULT_EDGE_ROUNDING,
+        ...JSON.parse(obj.edge_rounding_json),
+      };
+      const hasAny =
+        config.topLeft > 0 ||
+        config.topRight > 0 ||
+        config.bottomLeft > 0 ||
+        config.bottomRight > 0;
+      return hasAny ? config : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Creates a box geometry with rounded vertical edges (fillets).
+   * Based on carpentry standards where rounded corners are cylindrical arcs
+   * that maintain the object's thickness and are always cut perpendicular.
+   */
+  function createRoundedBoxGeometry(
+    w: number,
+    h: number,
+    d: number,
+    rounding: EdgeRoundingConfig,
+  ): THREE.BufferGeometry {
+    const hw = w / 2;
+    const hd = d / 2;
+    const segments = 8; // segments per corner arc
+
+    // Create a 2D shape (XZ plane) with rounded corners, then extrude vertically
+    const shape = new THREE.Shape();
+
+    const tl = Math.min(rounding.topLeft * SCALE, hw, hd);
+    const tr = Math.min(rounding.topRight * SCALE, hw, hd);
+    const br = Math.min(rounding.bottomRight * SCALE, hw, hd);
+    const bl = Math.min(rounding.bottomLeft * SCALE, hw, hd);
+
+    // Start from bottom-left, going clockwise (viewed from top)
+    // Bottom edge (from bottom-left to bottom-right)
+    shape.moveTo(-hw + bl, -hd);
+    shape.lineTo(hw - br, -hd);
+
+    // Bottom-right corner arc
+    if (br > 0) {
+      shape.absarc(hw - br, -hd + br, br, -Math.PI / 2, 0, false);
+    }
+
+    // Right edge
+    shape.lineTo(hw, hd - tr);
+
+    // Top-right corner arc
+    if (tr > 0) {
+      shape.absarc(hw - tr, hd - tr, tr, 0, Math.PI / 2, false);
+    }
+
+    // Top edge
+    shape.lineTo(-hw + tl, hd);
+
+    // Top-left corner arc
+    if (tl > 0) {
+      shape.absarc(-hw + tl, hd - tl, tl, Math.PI / 2, Math.PI, false);
+    }
+
+    // Left edge
+    shape.lineTo(-hw, -hd + bl);
+
+    // Bottom-left corner arc
+    if (bl > 0) {
+      shape.absarc(-hw + bl, -hd + bl, bl, Math.PI, (3 * Math.PI) / 2, false);
+    }
+
+    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
+      depth: h,
+      bevelEnabled: false,
+      curveSegments: segments,
+    };
+
+    const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    // Rotate so the extrusion goes along Y axis (up) instead of Z
+    geom.rotateX(-Math.PI / 2);
+    // Center vertically
+    geom.translate(0, h / 2, 0);
+
+    return geom;
+  }
+
+  // ---- Add / Update / Remove Objects ----
+  function addObject(obj: FurnitureObject) {
+    const geom = createObjectGeometry(obj);
     const mat = createObjectMaterial(
       obj.color,
       selectedIds.value.has(obj.id),
@@ -516,19 +641,13 @@ export function useScene(canvas: HTMLCanvasElement) {
       return;
     }
 
-    // Update geometry if dimensions changed
-    const w = obj.width * SCALE;
-    const h = obj.height * SCALE;
-    const d = obj.depth * SCALE;
-    const oldGeom = mesh.geometry as THREE.BoxGeometry;
-    const params = oldGeom.parameters;
-    if (params.width !== w || params.height !== h || params.depth !== d) {
-      mesh.geometry.dispose();
-      mesh.geometry = new THREE.BoxGeometry(w, h, d);
-      // Rebuild selection wireframe if selected
-      if (selectedIds.value.has(obj.id)) {
-        addSelectionWireframe(mesh);
-      }
+    // Always recreate geometry when updating (shape/rounding/dimensions may change)
+    // This is simpler and more reliable than trying to diff all possible geometry params
+    mesh.geometry.dispose();
+    mesh.geometry = createObjectGeometry(obj);
+    // Rebuild selection wireframe if selected
+    if (selectedIds.value.has(obj.id)) {
+      addSelectionWireframe(mesh);
     }
 
     // Update material - check if material type changed (need full replacement)

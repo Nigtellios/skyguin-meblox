@@ -26,7 +26,9 @@ export const FurnitureObjectSchema = z.object({
   rotation_y: z.number().default(0),
   color: z.string().default("#8B7355"),
   material_type: z.string().default("wood"),
+  object_shape: z.string().default("box"),
   edge_banding_json: z.string().nullable().default(null),
+  edge_rounding_json: z.string().nullable().default(null),
   material_template_id: z.string().nullable().default(null),
   component_id: z.string().nullable().default(null),
   is_independent: z.number().default(0),
@@ -155,7 +157,13 @@ export type MovementStepConfig = {
 };
 
 // Edge banding configuration for a single object
-export type EdgeBandingSide = "front" | "back" | "left" | "right" | "top" | "bottom";
+export type EdgeBandingSide =
+  | "front"
+  | "back"
+  | "left"
+  | "right"
+  | "top"
+  | "bottom";
 export type EdgeBandingConfig = {
   /** Veneer/laminate thickness on front face (mm), 0 = none */
   frontThickness: number;

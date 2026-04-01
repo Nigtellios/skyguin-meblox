@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { DEFAULT_EDGE_BANDING } from "../../../types";
 import type { EdgeBandingConfig } from "../../../types";
+import { DEFAULT_EDGE_BANDING } from "../../../types";
 
 describe("EdgeBandingBuilder", () => {
   it("DEFAULT_EDGE_BANDING has all zero thicknesses", () => {
@@ -56,15 +56,18 @@ describe("EdgeBandingBuilder", () => {
     };
 
     // Depth increases by front + back
-    const effectiveDepth = baseDepth + config.frontThickness + config.backThickness;
+    const effectiveDepth =
+      baseDepth + config.frontThickness + config.backThickness;
     expect(effectiveDepth).toBe(20);
 
     // Width increases by left + right
-    const effectiveWidth = baseWidth + config.leftThickness + config.rightThickness;
+    const effectiveWidth =
+      baseWidth + config.leftThickness + config.rightThickness;
     expect(effectiveWidth).toBe(604);
 
     // Height unchanged
-    const effectiveHeight = baseHeight + config.topThickness + config.bottomThickness;
+    const effectiveHeight =
+      baseHeight + config.topThickness + config.bottomThickness;
     expect(effectiveHeight).toBe(720);
   });
 });

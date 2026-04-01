@@ -33,9 +33,10 @@ export function createObjectHandlers(database: Database) {
         `INSERT INTO furniture_objects (
           id, project_id, name, width, height, depth,
           position_x, position_y, position_z, rotation_y,
-          color, material_type, edge_banding_json, material_template_id, component_id, is_independent,
+          color, material_type, object_shape, edge_banding_json, edge_rounding_json,
+          material_template_id, component_id, is_independent,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -50,7 +51,9 @@ export function createObjectHandlers(database: Database) {
         body.rotation_y ?? 0,
         body.color ?? "#8B7355",
         body.material_type ?? "wood",
+        body.object_shape ?? "box",
         body.edge_banding_json ?? null,
+        body.edge_rounding_json ?? null,
         body.material_template_id ?? null,
         body.component_id ?? null,
         body.is_independent ?? 0,
@@ -101,7 +104,9 @@ export function createObjectHandlers(database: Database) {
           rotation_y = COALESCE(?, rotation_y),
           color = COALESCE(?, color),
           material_type = COALESCE(?, material_type),
+          object_shape = COALESCE(?, object_shape),
           edge_banding_json = COALESCE(?, edge_banding_json),
+          edge_rounding_json = COALESCE(?, edge_rounding_json),
           material_template_id = ?,
           component_id = COALESCE(?, component_id),
           is_independent = COALESCE(?, is_independent),
@@ -119,7 +124,9 @@ export function createObjectHandlers(database: Database) {
         toSqlValue(body.rotation_y),
         toSqlValue(body.color),
         toSqlValue(body.material_type),
+        toSqlValue(body.object_shape),
         toSqlValue(body.edge_banding_json),
+        toSqlValue(body.edge_rounding_json),
         toSqlValue(materialTemplateId),
         toSqlValue(body.component_id),
         toSqlValue(body.is_independent),
@@ -268,9 +275,10 @@ export function createObjectHandlers(database: Database) {
         `INSERT INTO furniture_objects (
           id, project_id, name, width, height, depth,
           position_x, position_y, position_z, rotation_y,
-          color, material_type, edge_banding_json, material_template_id, component_id, is_independent,
+          color, material_type, object_shape, edge_banding_json, edge_rounding_json,
+          material_template_id, component_id, is_independent,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         newId,
@@ -285,7 +293,9 @@ export function createObjectHandlers(database: Database) {
         source.rotation_y,
         source.color,
         source.material_type,
+        source.object_shape,
         source.edge_banding_json,
+        source.edge_rounding_json,
         source.material_template_id,
         null,
         0,

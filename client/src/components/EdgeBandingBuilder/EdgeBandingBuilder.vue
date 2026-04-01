@@ -202,10 +202,10 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
-import { EDGE_BANDING_MATERIALS } from "../../lib/materialTypes";
 import type { MaterialType } from "../../lib/materialTypes";
-import { DEFAULT_EDGE_BANDING } from "../../types";
+import { EDGE_BANDING_MATERIALS } from "../../lib/materialTypes";
 import type { EdgeBandingConfig, FurnitureObject } from "../../types";
+import { DEFAULT_EDGE_BANDING } from "../../types";
 
 const props = defineProps<{
   obj: FurnitureObject;
@@ -241,20 +241,24 @@ const config = reactive<EdgeBandingConfig>({ ...initialConfig });
 const viewMode = ref<"front" | "back">("front");
 const selectedEdge = ref<EdgeKey | null>(null);
 
-const hasAnyBanding = computed(() =>
-  config.frontThickness > 0 || config.backThickness > 0 ||
-  config.topThickness > 0 || config.bottomThickness > 0 ||
-  config.leftThickness > 0 || config.rightThickness > 0,
+const hasAnyBanding = computed(
+  () =>
+    config.frontThickness > 0 ||
+    config.backThickness > 0 ||
+    config.topThickness > 0 ||
+    config.bottomThickness > 0 ||
+    config.leftThickness > 0 ||
+    config.rightThickness > 0,
 );
 
-const effectiveWidth = computed(() =>
-  props.obj.width + config.leftThickness + config.rightThickness,
+const effectiveWidth = computed(
+  () => props.obj.width + config.leftThickness + config.rightThickness,
 );
-const effectiveHeight = computed(() =>
-  props.obj.height + config.topThickness + config.bottomThickness,
+const effectiveHeight = computed(
+  () => props.obj.height + config.topThickness + config.bottomThickness,
 );
-const effectiveDepth = computed(() =>
-  props.obj.depth + config.frontThickness + config.backThickness,
+const effectiveDepth = computed(
+  () => props.obj.depth + config.frontThickness + config.backThickness,
 );
 
 // 2D preview sizing
@@ -344,6 +348,8 @@ function onClose() {
 
 // Check if the material supports edge banding
 const supportsEdgeBanding = computed(() =>
-  EDGE_BANDING_MATERIALS.has((props.obj.material_type ?? "wood") as MaterialType),
+  EDGE_BANDING_MATERIALS.has(
+    (props.obj.material_type ?? "wood") as MaterialType,
+  ),
 );
 </script>
