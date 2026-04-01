@@ -358,7 +358,10 @@ const hasEdgeBanding = computed(() => {
 const edgeRounding = computed(() => {
   if (!obj.value?.edge_rounding_json) return { ...DEFAULT_EDGE_ROUNDING };
   try {
-    return { ...DEFAULT_EDGE_ROUNDING, ...JSON.parse(obj.value.edge_rounding_json) };
+    return {
+      ...DEFAULT_EDGE_ROUNDING,
+      ...JSON.parse(obj.value.edge_rounding_json),
+    };
   } catch {
     return { ...DEFAULT_EDGE_ROUNDING };
   }

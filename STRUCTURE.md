@@ -95,13 +95,13 @@ skyguin-meblox/
 ### `ContextBar/`
 | Plik | Opis |
 |------|------|
-| `ContextBar.vue` | Dolny pływający pasek kontekstowy zmieniający się zależnie od stanu zaznaczenia. Tryby: "none" (przycisk dodaj), "object-actions" (przesuń, materiały, magnes, kopiuj, usuń), "move-controls" (strzałki + rotacja), "snap-mode" (feedback magnetyczny). Obsługuje skróty klawiszowe (strzałki, R = rotacja, X/Y/Z = osie). |
+| `ContextBar.vue` | Dolny pływający pasek kontekstowy zmieniający się zależnie od stanu zaznaczenia. Tryby: "none" (przycisk dodaj), "object-actions" (przesuń, materiały, magnes, kopiuj, usuń), "move-controls" (strzałki + rotacja), "snap-mode" (feedback magnetyczny). Obsługuje skróty klawiszowe: strzałki (ruch na wybranej osi), R (góra Y), F (dół Y), Q/E (rotacja), X/Y/Z (zmiana osi). |
 | `__tests__/ContextBar.test.ts` | Testy jednostkowe komponentu ContextBar. |
 
 ### `ObjectPropertiesPanel/`
 | Plik | Opis |
 |------|------|
-| `ObjectPropertiesPanel.vue` | Panel prawy edycji właściwości zaznaczonego obiektu: nazwa, wymiary (szer/wys/głęb), pozycja (X/Y/Z), rotacja, paleta kolorów z wybierakiem, wybór szablonu materiału, info o przynależności do komponentu (sync/independent). |
+| `ObjectPropertiesPanel.vue` | Panel prawy edycji właściwości zaznaczonego obiektu: nazwa, wymiary (szer/wys/głęb), pozycja (X/Y/Z), rotacja, paleta kolorów z wybierakiem, typ materiału (8 typów), kształt obiektu (prostopadłościan/kula/cylinder/sześcian), zaoblenie krawędzi, oklejanie (edge banding builder), wybór szablonu materiału, info o przynależności do komponentu. |
 | `__tests__/ObjectPropertiesPanel.test.ts` | Testy jednostkowe. |
 
 ### `ComponentsPanel/`
@@ -139,7 +139,7 @@ skyguin-meblox/
 ### `AddObjectDialog/`
 | Plik | Opis |
 |------|------|
-| `AddObjectDialog.vue` | Modal formularza tworzenia nowego obiektu meblowego. Pola: nazwa, wymiary (W/H/D), paleta kolorów + hex, wybór szablonu materiału. Przyciski szybkich presetów (bok 720×600×18, półka 600×30×580 itp.). Walidacja formularza. |
+| `AddObjectDialog.vue` | Modal formularza tworzenia nowego obiektu meblowego. Pola: nazwa, kształt (box/sphere/cylinder/cube), wymiary (W/H/D), typ materiału (8 typów z automatycznym kolorem domyślnym), paleta kolorów + hex, wybór szablonu materiału. Przyciski szybkich presetów (bok 720×600×18, półka 600×30×580 itp.). |
 | `__tests__/AddObjectDialog.test.ts` | Testy jednostkowe. |
 
 ### `MaterialsPanel/`
@@ -172,6 +172,18 @@ skyguin-meblox/
 | `HistoryPanel.vue` | Panel prawy z osią czasu wszystkich zmian. Każdy wpis: etykieta akcji i timestamp. Wizualizacja timeline z kropkami. Zaznaczenie wpisu → przyszłe wpisy szare, przycisk "Cofnij do tego momentu" z potwierdzeniem. |
 | `__tests__/HistoryPanel.test.ts` | Testy jednostkowe. |
 
+### `MovementStepPanel/`
+| Plik | Opis |
+|------|------|
+| `MovementStepPanel.vue` | Panel prawy ustawień skoku ruchu. Dwa tryby: skok wspólny (jedna wartość dla wszystkich osi) i skok niestandardowy (osobna wartość per oś X/Y/Z). Presety szybkiego wyboru (0.1, 0.5, 1, 2, 5, 10, 50, 100mm). Wyświetlanie aktualnego skoku per oś. |
+| `__tests__/MovementStepPanel.test.ts` | Testy jednostkowe. |
+
+### `EdgeBandingBuilder/`
+| Plik | Opis |
+|------|------|
+| `EdgeBandingBuilder.vue` | Modal (90% ekranu) visual buildera oklejania. Podgląd 2D obiektu z trybem front/rewers i 4 odłączonymi krawędziami. Per-edge ustawianie grubości obrzeża i koloru. Presety grubości (0-2mm). Podsumowanie aktywnych oklejań. Zamknięcie przez X lub klik poza modalem (z auto-zapisem). |
+| `__tests__/EdgeBandingBuilder.test.ts` | Testy logiki edge banding config i wymiarów. |
+
 ---
 
 ## Klient — Composables (`client/src/composables/`)
@@ -179,7 +191,7 @@ skyguin-meblox/
 ### `useAppStore/`
 | Plik | Opis |
 |------|------|
-| `useAppStore.ts` | Pinia store zarządzający całym stanem aplikacji: projekty, obiekty, materiały, komponenty, relacje, historia, panele UI, tryb sceny, ustawienia siatki, stan snap anchorów. Eksportuje 100+ mutacji stanu i akcji (CRUD obiektów, przełączanie projektów, tworzenie komponentów, nawigacja historii, skróty klawiszowe). |
+| `useAppStore.ts` | Pinia store zarządzający całym stanem aplikacji: projekty, obiekty, materiały, komponenty, relacje, historia, panele UI, tryb sceny, ustawienia siatki, konfiguracja skoku ruchu (shared/custom per oś), stan snap anchorów. Eksportuje 100+ mutacji stanu i akcji (CRUD obiektów, przełączanie projektów, tworzenie komponentów, nawigacja historii, skróty klawiszowe, ustawienia ruchu). |
 | `index.ts` | Re-eksport `useAppStore`. |
 | `__tests__/useAppStore.test.ts` | Testy jednostkowe akcji i mutacji store'a. |
 
@@ -193,7 +205,7 @@ skyguin-meblox/
 ### `useScene/`
 | Plik | Opis |
 |------|------|
-| `useScene.ts` | Fabryka tworząca scenę Three.js z renderowaniem obiektów meblowych. Zarządza kamerą, oświetleniem, rendererem, raycastingiem do selekcji obiektów. Obsługuje: synchronizację obiektów ze store'em, budowanie wizualizacji siatki, drag z snappingiem, podświetlanie ścian/krawędzi, markery snap anchorów, przechwytywanie screenshotów. 400+ linii. |
+| `useScene.ts` | Fabryka tworząca scenę Three.js z renderowaniem obiektów meblowych. Zarządza kamerą, oświetleniem, rendererem, raycastingiem do selekcji obiektów. Obsługuje: różne kształty obiektów (box, sphere, cylinder, cube), zaoblenie krawędzi (ExtrudeGeometry), efekty metaliczne (MeshStandardMaterial z metalness/roughness dla stali/aluminium), wizualizację oklejania (LineDashedMaterial), synchronizację z store'em, budowanie siatki, drag z snappingiem, przechwytywanie screenshotów. 600+ linii. |
 | `index.ts` | Re-eksport `useScene`. |
 | `__tests__/useScene.test.ts` | Testy jednostkowe zarządzania sceną. |
 
@@ -229,6 +241,20 @@ skyguin-meblox/
 | `index.ts` | Re-eksport narzędzi snap anchorów. |
 | `__tests__/snapAnchors.test.ts` | Testy logiki snap anchorów. |
 
+### `materialTypes/`
+| Plik | Opis |
+|------|------|
+| `materialTypes.ts` | Definicja 8 typów materiałów (drewno, płyta meblowa, płyta fornirowana, plastik, stal, stal nierdzewna, aluminium, nieokreślony). Eksportuje: `MATERIAL_TYPES`, `MATERIAL_TYPE_LABELS`, `MATERIAL_DEFAULT_COLORS`, `METALLIC_MATERIALS`, `EDGE_BANDING_MATERIALS`, `MATERIAL_METALNESS`, `MATERIAL_ROUGHNESS`. Definiuje który materiał wspiera oklejanie i efekt metaliczny. |
+| `index.ts` | Re-eksport typów i stałych materiałów. |
+| `__tests__/materialTypes.test.ts` | Testy konfiguracji materiałów. |
+
+### `objectShapes/`
+| Plik | Opis |
+|------|------|
+| `objectShapes.ts` | Definicja kształtów obiektów (box, sphere, cylinder, cube) z etykietami PL. Konfiguracja zaoblenia krawędzi (`EdgeRoundingConfig`): 4 narożniki z promieniem w mm. Presety zaoblenia (0-50mm) wg standardów stolarskich. |
+| `index.ts` | Re-eksport typów i stałych kształtów. |
+| `__tests__/objectShapes.test.ts` | Testy konfiguracji kształtów. |
+
 ### `projectThumbnails.ts`
 | Plik | Opis |
 |------|------|
@@ -240,7 +266,7 @@ skyguin-meblox/
 
 | Plik | Opis |
 |------|------|
-| `index.ts` | Schematy Zod i typy TypeScript dla wszystkich modeli domenowych: `Project`, `FurnitureObject`, `MaterialLayer`, `MaterialTemplate`, `ComponentGroup`, `ObjectRelation`, `HistoryEntry`, `AppPanel`, `SceneMode`, `ContextMode`, `GridConfig`, `RelationEditorMode`. Eksportuje etykiety: `RELATION_TYPE_LABELS`, `RELATION_FIELD_LABELS`, `RELATION_MODE_LABELS`, `SIDE_LABELS`, `LAYER_TYPE_LABELS`, `OPPOSITE_SIDES`. ~350 linii. |
+| `index.ts` | Schematy Zod i typy TypeScript dla wszystkich modeli domenowych: `Project`, `FurnitureObject` (z `material_type`, `object_shape`, `edge_banding_json`, `edge_rounding_json`), `MaterialLayer`, `MaterialTemplate`, `ComponentGroup`, `ObjectRelation`, `HistoryEntry`, `AppPanel` (w tym `movement-step`), `SceneMode`, `ContextMode`, `GridConfig`, `MovementStepConfig`, `EdgeBandingConfig`, `RelationEditorMode`. ~400 linii. |
 | `__tests__/types.test.ts` | Testy schematów typów. |
 
 ---
@@ -379,7 +405,7 @@ skyguin-meblox/
 | Tabela | Opis |
 |--------|------|
 | `projects` | Projekty meblowe (nazwa, opis, rozmiar siatki, miniatura base64) |
-| `furniture_objects` | Obiekty meblowe (wymiary, pozycja, rotacja, kolor, projekt) |
+| `furniture_objects` | Obiekty meblowe (wymiary, pozycja, rotacja, kolor, typ materiału, kształt, oklejanie JSON, zaoblenie krawędzi JSON, projekt) |
 | `component_groups` | Grupy komponentów (synchronizacja wymiarów między obiektami) |
 | `object_relations` | Relacje między obiektami (dimension/attachment) |
 | `material_templates` | Szablony materiałów (nazwa, kolor bazowy) |
@@ -388,4 +414,4 @@ skyguin-meblox/
 
 ---
 
-*Ostatnia aktualizacja: 2026-04-01*
+*Ostatnia aktualizacja: 2026-04-01 (dodano materiały, oklejanie, kształty, zaoblenia)*

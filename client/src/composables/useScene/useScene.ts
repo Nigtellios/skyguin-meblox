@@ -7,6 +7,8 @@ import {
   MATERIAL_ROUGHNESS,
   METALLIC_MATERIALS,
 } from "../../lib/materialTypes";
+import type { EdgeRoundingConfig } from "../../lib/objectShapes";
+import { DEFAULT_EDGE_ROUNDING } from "../../lib/objectShapes";
 import type { SnapAnchorType } from "../../lib/snapAnchors";
 import type {
   EdgeBandingConfig,
@@ -14,8 +16,6 @@ import type {
   GridConfig,
 } from "../../types";
 import { DEFAULT_EDGE_BANDING } from "../../types";
-import type { EdgeRoundingConfig } from "../../lib/objectShapes";
-import { DEFAULT_EDGE_ROUNDING } from "../../lib/objectShapes";
 
 // Scale factor: 1 Three.js unit = 1mm
 const SCALE = 0.001; // mm → meters (Three.js world units)
@@ -510,9 +510,7 @@ export function useScene(canvas: HTMLCanvasElement) {
     }
   }
 
-  function parseEdgeRounding(
-    obj: FurnitureObject,
-  ): EdgeRoundingConfig | null {
+  function parseEdgeRounding(obj: FurnitureObject): EdgeRoundingConfig | null {
     if (!obj.edge_rounding_json) return null;
     try {
       const config = {
