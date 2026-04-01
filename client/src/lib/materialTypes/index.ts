@@ -1,3 +1,4 @@
+export type { MaterialType } from "./materialTypes";
 export {
   EDGE_BANDING_MATERIALS,
   MATERIAL_DEFAULT_COLORS,
@@ -7,4 +8,3 @@ export {
   MATERIAL_TYPES,
   METALLIC_MATERIALS,
 } from "./materialTypes";
-export type { MaterialType } from "./materialTypes";

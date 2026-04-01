@@ -169,6 +169,31 @@
         </select>
       </div>
 
+      <!-- Edge Banding (only for supported materials) -->
+      <div class="panel-section" v-if="supportsEdgeBanding">
+        <div class="label-text mb-2">Oklejanie</div>
+        <button
+          class="w-full px-3 py-2 rounded-lg text-sm bg-amber-700/30 text-amber-300 hover:bg-amber-700/50 transition-colors flex items-center justify-center gap-2"
+          @click="showEdgeBandingBuilder = true"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+          </svg>
+          {{ hasEdgeBanding ? 'Edytuj oklejanie' : 'Konfiguruj oklejanie' }}
+        </button>
+        <div v-if="hasEdgeBanding" class="mt-1 text-xs text-slate-500">
+          Aktywne oklejanie — wpływa na wymiary efektywne
+        </div>
+      </div>
+
+      <!-- Edge Banding Builder Modal -->
+      <EdgeBandingBuilder
+        v-if="showEdgeBandingBuilder && obj"
+        :obj="obj"
+        @save="onEdgeBandingSave"
+        @close="showEdgeBandingBuilder = false"
+      />
+
       <!-- Component info -->
       <div class="panel-section" v-if="obj.component_id">
         <div class="label-text mb-2">Komponent</div>
@@ -200,22 +225,49 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useAppStore } from "../../composables/useAppStore";
+import type { MaterialType } from "../../lib/materialTypes";
 import {
+  EDGE_BANDING_MATERIALS,
   MATERIAL_DEFAULT_COLORS,
   MATERIAL_TYPE_LABELS,
   MATERIAL_TYPES,
 } from "../../lib/materialTypes";
-import type { MaterialType } from "../../lib/materialTypes";
 import { OBJECT_COLOR_PALETTE } from "../../lib/objectPresets";
-import type { FurnitureObject } from "../../types";
+import type { EdgeBandingConfig, FurnitureObject } from "../../types";
+import EdgeBandingBuilder from "../EdgeBandingBuilder/EdgeBandingBuilder.vue";
 
 const store = useAppStore();
 
 const obj = computed(() => store.firstSelectedObject);
 
 const colorPalette = OBJECT_COLOR_PALETTE;
+
+const showEdgeBandingBuilder = ref(false);
+
+const supportsEdgeBanding = computed(() =>
+  EDGE_BANDING_MATERIALS.has(
+    (obj.value?.material_type ?? "wood") as MaterialType,
+  ),
+);
+
+const hasEdgeBanding = computed(() => {
+  if (!obj.value?.edge_banding_json) return false;
+  try {
+    const config = JSON.parse(obj.value.edge_banding_json);
+    return (
+      config.frontThickness > 0 ||
+      config.backThickness > 0 ||
+      config.topThickness > 0 ||
+      config.bottomThickness > 0 ||
+      config.leftThickness > 0 ||
+      config.rightThickness > 0
+    );
+  } catch {
+    return false;
+  }
+});
 
 type EditableObjectField =
   | "name"
@@ -283,5 +335,12 @@ async function onDelete() {
 
 async function toggleIndependent() {
   if (obj.value) await store.toggleObjectIndependent(obj.value.id);
+}
+
+function onEdgeBandingSave(config: EdgeBandingConfig) {
+  if (!obj.value) return;
+  store.updateObject(obj.value.id, {
+    edge_banding_json: JSON.stringify(config),
+  });
 }
 </script>

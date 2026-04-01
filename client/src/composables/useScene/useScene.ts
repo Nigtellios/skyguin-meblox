@@ -8,7 +8,12 @@ import {
   METALLIC_MATERIALS,
 } from "../../lib/materialTypes";
 import type { SnapAnchorType } from "../../lib/snapAnchors";
-import type { FurnitureObject, GridConfig } from "../../types";
+import type {
+  EdgeBandingConfig,
+  FurnitureObject,
+  GridConfig,
+} from "../../types";
+import { DEFAULT_EDGE_BANDING } from "../../types";
 
 // Scale factor: 1 Three.js unit = 1mm
 const SCALE = 0.001; // mm → meters (Three.js world units)
@@ -242,10 +247,8 @@ export function useScene(canvas: HTMLCanvasElement) {
     if (isMetallic) {
       const mat = new THREE.MeshStandardMaterial({
         color: new THREE.Color(color),
-        metalness:
-          MATERIAL_METALNESS[materialType as MaterialType] ?? 0.8,
-        roughness:
-          MATERIAL_ROUGHNESS[materialType as MaterialType] ?? 0.35,
+        metalness: MATERIAL_METALNESS[materialType as MaterialType] ?? 0.8,
+        roughness: MATERIAL_ROUGHNESS[materialType as MaterialType] ?? 0.35,
         envMap: getMetalEnvMap(),
         envMapIntensity: 1.0,
       });
@@ -289,6 +292,187 @@ export function useScene(canvas: HTMLCanvasElement) {
     if (existing) mesh.remove(existing);
   }
 
+  // ---- Edge banding visualization (dashed lines) ----
+  function parseEdgeBanding(obj: FurnitureObject): EdgeBandingConfig | null {
+    if (!obj.edge_banding_json) return null;
+    try {
+      const config = {
+        ...DEFAULT_EDGE_BANDING,
+        ...JSON.parse(obj.edge_banding_json),
+      };
+      const hasAny =
+        config.frontThickness > 0 ||
+        config.backThickness > 0 ||
+        config.topThickness > 0 ||
+        config.bottomThickness > 0 ||
+        config.leftThickness > 0 ||
+        config.rightThickness > 0;
+      return hasAny ? config : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function removeEdgeBandingVisualization(mesh: THREE.Mesh) {
+    const children = mesh.children.filter((c) =>
+      c.name.startsWith("__edge_banding_"),
+    );
+    for (const child of children) {
+      mesh.remove(child);
+      if (child instanceof THREE.LineSegments) {
+        child.geometry.dispose();
+        (child.material as THREE.Material).dispose();
+      }
+    }
+  }
+
+  function addEdgeBandingVisualization(
+    mesh: THREE.Mesh,
+    config: EdgeBandingConfig,
+  ) {
+    removeEdgeBandingVisualization(mesh);
+
+    const geom = mesh.geometry as THREE.BoxGeometry;
+    const { width: w, height: h, depth: d } = geom.parameters;
+    const hw = w / 2;
+    const hh = h / 2;
+    const hd = d / 2;
+    const offset = 0.0005; // small offset to prevent z-fighting
+
+    // Create dashed line patterns for each active edge/face
+    const sides: Array<{
+      name: string;
+      thickness: number;
+      color: string;
+      points: [THREE.Vector3, THREE.Vector3][];
+    }> = [];
+
+    if (config.frontThickness > 0) {
+      // Front face - draw dashed rectangle outline on the front
+      const z = hd + offset;
+      sides.push({
+        name: "front",
+        thickness: config.frontThickness,
+        color: config.frontColor,
+        points: [
+          [new THREE.Vector3(-hw, -hh, z), new THREE.Vector3(hw, -hh, z)],
+          [new THREE.Vector3(hw, -hh, z), new THREE.Vector3(hw, hh, z)],
+          [new THREE.Vector3(hw, hh, z), new THREE.Vector3(-hw, hh, z)],
+          [new THREE.Vector3(-hw, hh, z), new THREE.Vector3(-hw, -hh, z)],
+        ],
+      });
+    }
+
+    if (config.backThickness > 0) {
+      const z = -(hd + offset);
+      sides.push({
+        name: "back",
+        thickness: config.backThickness,
+        color: config.backColor,
+        points: [
+          [new THREE.Vector3(-hw, -hh, z), new THREE.Vector3(hw, -hh, z)],
+          [new THREE.Vector3(hw, -hh, z), new THREE.Vector3(hw, hh, z)],
+          [new THREE.Vector3(hw, hh, z), new THREE.Vector3(-hw, hh, z)],
+          [new THREE.Vector3(-hw, hh, z), new THREE.Vector3(-hw, -hh, z)],
+        ],
+      });
+    }
+
+    if (config.topThickness > 0) {
+      const y = hh + offset;
+      sides.push({
+        name: "top",
+        thickness: config.topThickness,
+        color: config.topColor,
+        points: [
+          [new THREE.Vector3(-hw, y, -hd), new THREE.Vector3(hw, y, -hd)],
+          [new THREE.Vector3(hw, y, -hd), new THREE.Vector3(hw, y, hd)],
+          [new THREE.Vector3(hw, y, hd), new THREE.Vector3(-hw, y, hd)],
+          [new THREE.Vector3(-hw, y, hd), new THREE.Vector3(-hw, y, -hd)],
+        ],
+      });
+    }
+
+    if (config.bottomThickness > 0) {
+      const y = -(hh + offset);
+      sides.push({
+        name: "bottom",
+        thickness: config.bottomThickness,
+        color: config.bottomColor,
+        points: [
+          [new THREE.Vector3(-hw, y, -hd), new THREE.Vector3(hw, y, -hd)],
+          [new THREE.Vector3(hw, y, -hd), new THREE.Vector3(hw, y, hd)],
+          [new THREE.Vector3(hw, y, hd), new THREE.Vector3(-hw, y, hd)],
+          [new THREE.Vector3(-hw, y, hd), new THREE.Vector3(-hw, y, -hd)],
+        ],
+      });
+    }
+
+    if (config.leftThickness > 0) {
+      const x = -(hw + offset);
+      sides.push({
+        name: "left",
+        thickness: config.leftThickness,
+        color: config.leftColor,
+        points: [
+          [new THREE.Vector3(x, -hh, -hd), new THREE.Vector3(x, -hh, hd)],
+          [new THREE.Vector3(x, -hh, hd), new THREE.Vector3(x, hh, hd)],
+          [new THREE.Vector3(x, hh, hd), new THREE.Vector3(x, hh, -hd)],
+          [new THREE.Vector3(x, hh, -hd), new THREE.Vector3(x, -hh, -hd)],
+        ],
+      });
+    }
+
+    if (config.rightThickness > 0) {
+      const x = hw + offset;
+      sides.push({
+        name: "right",
+        thickness: config.rightThickness,
+        color: config.rightColor,
+        points: [
+          [new THREE.Vector3(x, -hh, -hd), new THREE.Vector3(x, -hh, hd)],
+          [new THREE.Vector3(x, -hh, hd), new THREE.Vector3(x, hh, hd)],
+          [new THREE.Vector3(x, hh, hd), new THREE.Vector3(x, hh, -hd)],
+          [new THREE.Vector3(x, hh, -hd), new THREE.Vector3(x, -hh, -hd)],
+        ],
+      });
+    }
+
+    for (const side of sides) {
+      const positions: number[] = [];
+      for (const [start, end] of side.points) {
+        positions.push(start.x, start.y, start.z, end.x, end.y, end.z);
+      }
+      const lineGeom = new THREE.BufferGeometry();
+      lineGeom.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(positions, 3),
+      );
+      const lineMat = new THREE.LineDashedMaterial({
+        color: new THREE.Color(side.color),
+        dashSize: 0.008,
+        gapSize: 0.004,
+        linewidth: 1,
+      });
+      const lineSegments = new THREE.LineSegments(lineGeom, lineMat);
+      lineSegments.computeLineDistances();
+      lineSegments.name = `__edge_banding_${side.name}__`;
+      mesh.add(lineSegments);
+    }
+  }
+
+  function updateEdgeBandingVisualization(
+    mesh: THREE.Mesh,
+    obj: FurnitureObject,
+  ) {
+    const config = parseEdgeBanding(obj);
+    if (config) {
+      addEdgeBandingVisualization(mesh, config);
+    } else {
+      removeEdgeBandingVisualization(mesh);
+    }
+  }
+
   // ---- Add / Update / Remove Objects ----
   function addObject(obj: FurnitureObject) {
     const w = obj.width * SCALE;
@@ -317,6 +501,9 @@ export function useScene(canvas: HTMLCanvasElement) {
     if (selectedIds.value.has(obj.id)) {
       addSelectionWireframe(mesh);
     }
+
+    // Add edge banding visualization if applicable
+    updateEdgeBandingVisualization(mesh, obj);
 
     scene.add(mesh);
     objectMeshMap.set(obj.id, mesh);
@@ -361,7 +548,9 @@ export function useScene(canvas: HTMLCanvasElement) {
       );
     } else {
       // Same material category, just update color and selection state
-      const mat = mesh.material as THREE.MeshPhongMaterial | THREE.MeshStandardMaterial;
+      const mat = mesh.material as
+        | THREE.MeshPhongMaterial
+        | THREE.MeshStandardMaterial;
       mat.color.set(obj.color);
       const isSelected = selectedIds.value.has(obj.id);
       if (isSelected) {
@@ -380,6 +569,9 @@ export function useScene(canvas: HTMLCanvasElement) {
       obj.position_z * SCALE,
     );
     mesh.rotation.y = obj.rotation_y;
+
+    // Update edge banding visualization
+    updateEdgeBandingVisualization(mesh, obj);
   }
 
   function removeObject(id: string) {
@@ -419,7 +611,9 @@ export function useScene(canvas: HTMLCanvasElement) {
 
     // Update selection highlights
     for (const [id, mesh] of objectMeshMap) {
-      const mat = mesh.material as THREE.MeshPhongMaterial | THREE.MeshStandardMaterial;
+      const mat = mesh.material as
+        | THREE.MeshPhongMaterial
+        | THREE.MeshStandardMaterial;
       if (selIds.includes(id)) {
         mat.emissive.set(0x2244aa);
         mat.emissiveIntensity = 0.3;

@@ -26,6 +26,7 @@ export const FurnitureObjectSchema = z.object({
   rotation_y: z.number().default(0),
   color: z.string().default("#8B7355"),
   material_type: z.string().default("wood"),
+  edge_banding_json: z.string().nullable().default(null),
   material_template_id: z.string().nullable().default(null),
   component_id: z.string().nullable().default(null),
   is_independent: z.number().default(0),
@@ -151,6 +152,41 @@ export type MovementStepConfig = {
   stepX: number; // mm — used when mode is "custom"
   stepY: number; // mm
   stepZ: number; // mm
+};
+
+// Edge banding configuration for a single object
+export type EdgeBandingSide = "front" | "back" | "left" | "right" | "top" | "bottom";
+export type EdgeBandingConfig = {
+  /** Veneer/laminate thickness on front face (mm), 0 = none */
+  frontThickness: number;
+  frontColor: string;
+  /** Veneer/laminate thickness on back face (mm), 0 = none */
+  backThickness: number;
+  backColor: string;
+  /** Edge banding per edge (mm thickness), 0 = none */
+  topThickness: number;
+  topColor: string;
+  bottomThickness: number;
+  bottomColor: string;
+  leftThickness: number;
+  leftColor: string;
+  rightThickness: number;
+  rightColor: string;
+};
+
+export const DEFAULT_EDGE_BANDING: EdgeBandingConfig = {
+  frontThickness: 0,
+  frontColor: "#D4A574",
+  backThickness: 0,
+  backColor: "#D4A574",
+  topThickness: 0,
+  topColor: "#C4956A",
+  bottomThickness: 0,
+  bottomColor: "#C4956A",
+  leftThickness: 0,
+  leftColor: "#C4956A",
+  rightThickness: 0,
+  rightColor: "#C4956A",
 };
 
 // Scene state

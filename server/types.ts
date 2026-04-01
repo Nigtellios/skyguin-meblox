@@ -51,6 +51,7 @@ export type FurnitureObjectRow = {
   rotation_y: number;
   color: string;
   material_type: string;
+  edge_banding_json: string | null;
   material_template_id: string | null;
   component_id: string | null;
   is_independent: number;
@@ -108,6 +109,7 @@ export type FurnitureObjectPayload = Partial<
     | "rotation_y"
     | "color"
     | "material_type"
+    | "edge_banding_json"
     | "material_template_id"
     | "component_id"
     | "is_independent"

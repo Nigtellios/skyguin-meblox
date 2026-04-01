@@ -99,12 +99,12 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from "vue";
 import { useAppStore } from "../../composables/useAppStore";
+import type { MaterialType } from "../../lib/materialTypes";
 import {
   MATERIAL_DEFAULT_COLORS,
   MATERIAL_TYPE_LABELS,
   MATERIAL_TYPES,
 } from "../../lib/materialTypes";
-import type { MaterialType } from "../../lib/materialTypes";
 import { OBJECT_PRESETS, type ObjectPreset } from "../../lib/objectPresets";
 
 const props = defineProps<{
