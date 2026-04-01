@@ -240,7 +240,7 @@
           <div class="flex flex-col gap-1">
             <button
               class="btn-icon-bar btn-move-arrow"
-              title="Obróć w lewo CCW (R)"
+              title="Obróć w lewo CCW (Q)"
               @click="onRotate(-1)"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -249,7 +249,7 @@
             </button>
             <button
               class="btn-icon-bar btn-move-arrow"
-              title="Obróć w prawo CW (R+Shift)"
+              title="Obróć w prawo CW (E)"
               @click="onRotate(1)"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -262,7 +262,9 @@
         <!-- Keyboard hints -->
         <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-slate-500 text-xs">
           <span>↑↓←→ przesuń</span>
-          <span>R obróć</span>
+          <span>R góra Z</span>
+          <span>F dół Z</span>
+          <span>Q/E obróć</span>
           <span>X/Y/Z oś</span>
         </div>
       </div>
@@ -306,7 +308,10 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from "vue";
+import { useAppStore } from "../../composables/useAppStore";
 import type { ContextMode, FurnitureObject, SceneMode } from "../../types";
+
+const store = useAppStore();
 
 const props = defineProps<{
   contextMode: ContextMode;
@@ -355,6 +360,11 @@ function onCustomStepChange() {
   } else {
     customStepInput.value = "";
   }
+}
+
+/** Returns the effective step size for a given axis, considering store's global step config */
+function getEffectiveStep(axis: Axis): number {
+  return store.getStepForAxis(axis);
 }
 
 const ROTATE_STEP_DEG = 15;
@@ -439,7 +449,22 @@ function handleMoveControlsKey(e: KeyboardEvent) {
     case "r":
     case "R":
       e.preventDefault();
-      onRotate(e.shiftKey ? 1 : -1);
+      emit("move-object", { dx: 0, dy: getEffectiveStep("Y"), dz: 0, dr: 0 });
+      break;
+    case "f":
+    case "F":
+      e.preventDefault();
+      emit("move-object", { dx: 0, dy: -getEffectiveStep("Y"), dz: 0, dr: 0 });
+      break;
+    case "q":
+    case "Q":
+      e.preventDefault();
+      onRotate(-1);
+      break;
+    case "e":
+    case "E":
+      e.preventDefault();
+      onRotate(1);
       break;
     case "x":
     case "X":

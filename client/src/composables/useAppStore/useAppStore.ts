@@ -12,6 +12,7 @@ import type {
   GridConfig,
   HistoryEntry,
   MaterialTemplate,
+  MovementStepConfig,
   ObjectRelation,
   Project,
   RelationEditorMode,
@@ -71,6 +72,15 @@ function createInitialState() {
       sizeZ: 100,
       unit: "mm",
     } as GridConfig,
+
+    // Movement step settings
+    movementStep: {
+      mode: "shared",
+      sharedStep: 10,
+      stepX: 10,
+      stepY: 10,
+      stepZ: 10,
+    } as MovementStepConfig,
 
     // Snap-anchor state
     snapPhase: "none" as "none" | "select-source" | "select-target",
@@ -607,6 +617,24 @@ export const useAppStore = defineStore("app", () => {
     }
   }
 
+  function setMovementStepConfig(config: Partial<MovementStepConfig>) {
+    Object.assign(state.movementStep, config);
+  }
+
+  function getStepForAxis(axis: "X" | "Y" | "Z"): number {
+    if (state.movementStep.mode === "shared") {
+      return state.movementStep.sharedStep;
+    }
+    switch (axis) {
+      case "X":
+        return state.movementStep.stepX;
+      case "Y":
+        return state.movementStep.stepY;
+      case "Z":
+        return state.movementStep.stepZ;
+    }
+  }
+
   function setActivePanel(panel: AppPanel) {
     state.activePanel = panel;
     if (panel !== "relations") {
@@ -904,6 +932,8 @@ export const useAppStore = defineStore("app", () => {
     updateMaterial,
     deleteMaterial,
     setGridConfig,
+    setMovementStepConfig,
+    getStepForAxis,
     setActivePanel,
     setSceneMode,
     setContextMode,

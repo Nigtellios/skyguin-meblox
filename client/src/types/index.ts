@@ -142,6 +142,16 @@ export type GridConfig = {
   unit: "mm" | "cm";
 };
 
+// Movement step configuration
+export type MovementStepMode = "shared" | "custom";
+export type MovementStepConfig = {
+  mode: MovementStepMode;
+  sharedStep: number; // mm — used when mode is "shared"
+  stepX: number; // mm — used when mode is "custom"
+  stepY: number; // mm
+  stepZ: number; // mm
+};
+
 // Scene state
 export type SceneMode = "select" | "move" | "rotate" | "snap";
 
@@ -153,7 +163,8 @@ export type AppPanel =
   | "components"
   | "relations"
   | "object-props"
-  | "history";
+  | "history"
+  | "movement-step";
 
 export type HistoryEntry = {
   id: string;
