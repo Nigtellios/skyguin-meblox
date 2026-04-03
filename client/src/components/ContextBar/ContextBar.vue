@@ -262,8 +262,8 @@
         <!-- Keyboard hints -->
         <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-slate-500 text-xs">
           <span>↑↓←→ przesuń</span>
-          <span>R góra Z</span>
-          <span>F dół Z</span>
+          <span>R góra Y</span>
+          <span>F dół Y</span>
           <span>Q/E obróć</span>
           <span>X/Y/Z oś</span>
         </div>
