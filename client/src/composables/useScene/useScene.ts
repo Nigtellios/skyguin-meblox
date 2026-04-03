@@ -335,11 +335,15 @@ export function useScene(canvas: HTMLCanvasElement) {
   ) {
     removeEdgeBandingVisualization(mesh);
 
-    const geom = mesh.geometry as THREE.BoxGeometry;
-    const { width: w, height: h, depth: d } = geom.parameters;
-    const hw = w / 2;
-    const hh = h / 2;
-    const hd = d / 2;
+    // Derive half-extents from the bounding box so this works for any
+    // geometry (BoxGeometry, ExtrudeGeometry for rounded boxes, etc.)
+    mesh.geometry.computeBoundingBox();
+    const box = mesh.geometry.boundingBox;
+    if (!box) return;
+
+    const hw = (box.max.x - box.min.x) / 2;
+    const hh = (box.max.y - box.min.y) / 2;
+    const hd = (box.max.z - box.min.z) / 2;
     const offset = 0.0005; // small offset to prevent z-fighting
 
     // Create dashed line patterns for each active edge/face
@@ -499,7 +503,6 @@ export function useScene(canvas: HTMLCanvasElement) {
         const side = Math.max(w, h, d);
         return new THREE.BoxGeometry(side, side, side);
       }
-      case "box":
       default: {
         // Check for edge rounding
         const rounding = parseEdgeRounding(obj);
@@ -620,7 +623,11 @@ export function useScene(canvas: HTMLCanvasElement) {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.name = obj.id;
-    mesh.userData = { type: "furniture", id: obj.id };
+    mesh.userData = {
+      type: "furniture",
+      id: obj.id,
+      __geoSig: geometrySignature(obj),
+    };
 
     if (selectedIds.value.has(obj.id)) {
       addSelectionWireframe(mesh);
@@ -633,6 +640,11 @@ export function useScene(canvas: HTMLCanvasElement) {
     objectMeshMap.set(obj.id, mesh);
   }
 
+  /** Build a string key that identifies the geometry-relevant properties of an object. */
+  function geometrySignature(obj: FurnitureObject): string {
+    return `${obj.width}:${obj.height}:${obj.depth}:${obj.object_shape ?? "box"}:${obj.edge_rounding_json ?? ""}`;
+  }
+
   function updateObject(obj: FurnitureObject) {
     const mesh = objectMeshMap.get(obj.id);
     if (!mesh) {
@@ -640,13 +652,16 @@ export function useScene(canvas: HTMLCanvasElement) {
       return;
     }
 
-    // Always recreate geometry when updating (shape/rounding/dimensions may change)
-    // This is simpler and more reliable than trying to diff all possible geometry params
-    mesh.geometry.dispose();
-    mesh.geometry = createObjectGeometry(obj);
-    // Rebuild selection wireframe if selected
-    if (selectedIds.value.has(obj.id)) {
-      addSelectionWireframe(mesh);
+    // Only recreate geometry when shape/dimensions/rounding actually changed
+    const newSig = geometrySignature(obj);
+    if (mesh.userData.__geoSig !== newSig) {
+      mesh.geometry.dispose();
+      mesh.geometry = createObjectGeometry(obj);
+      mesh.userData.__geoSig = newSig;
+      // Rebuild selection wireframe if selected
+      if (selectedIds.value.has(obj.id)) {
+        addSelectionWireframe(mesh);
+      }
     }
 
     // Update material - check if material type changed (need full replacement)

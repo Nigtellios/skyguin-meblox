@@ -25,8 +25,19 @@ export const FurnitureObjectSchema = z.object({
   position_z: z.number().default(0),
   rotation_y: z.number().default(0),
   color: z.string().default("#8B7355"),
-  material_type: z.string().default("wood"),
-  object_shape: z.string().default("box"),
+  material_type: z
+    .enum([
+      "wood",
+      "furniture_board",
+      "veneered_board",
+      "plastic",
+      "steel",
+      "stainless_steel",
+      "aluminum",
+      "unspecified",
+    ])
+    .default("wood"),
+  object_shape: z.enum(["box", "sphere", "cylinder", "cube"]).default("box"),
   edge_banding_json: z.string().nullable().default(null),
   edge_rounding_json: z.string().nullable().default(null),
   material_template_id: z.string().nullable().default(null),
