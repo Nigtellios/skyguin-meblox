@@ -234,8 +234,6 @@ export function useScene(canvas: HTMLCanvasElement) {
       _envMap = pmremGenerator.fromScene(envScene, 0.04).texture;
       // Dispose temporary resources used for env map generation
       pmremGenerator.dispose();
-      envLight1.dispose();
-      envLight2.dispose();
     }
     return _envMap;
   }
