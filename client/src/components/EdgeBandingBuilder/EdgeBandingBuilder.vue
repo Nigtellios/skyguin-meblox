@@ -229,10 +229,23 @@ const edgeLabels: Record<EdgeKey, string> = {
 
 const thicknessPresets = [0, 0.4, 0.5, 1, 1.5, 2];
 
+function getInitialConfig(): EdgeBandingConfig {
+  if (!props.obj.edge_banding_json) {
+    return { ...DEFAULT_EDGE_BANDING };
+  }
+
+  try {
+    return {
+      ...DEFAULT_EDGE_BANDING,
+      ...JSON.parse(props.obj.edge_banding_json),
+    };
+  } catch {
+    return { ...DEFAULT_EDGE_BANDING };
+  }
+}
+
 // Parse existing config or use defaults
-const initialConfig: EdgeBandingConfig = props.obj.edge_banding_json
-  ? { ...DEFAULT_EDGE_BANDING, ...JSON.parse(props.obj.edge_banding_json) }
-  : { ...DEFAULT_EDGE_BANDING };
+const initialConfig: EdgeBandingConfig = getInitialConfig();
 
 const config = reactive<EdgeBandingConfig>({ ...initialConfig });
 
