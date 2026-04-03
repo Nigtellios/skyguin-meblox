@@ -150,6 +150,7 @@ import ContextBar from "./components/ContextBar/ContextBar.vue";
 import GridSettingsPanel from "./components/GridSettingsPanel/GridSettingsPanel.vue";
 import HistoryPanel from "./components/HistoryPanel/HistoryPanel.vue";
 import MaterialsPanel from "./components/MaterialsPanel/MaterialsPanel.vue";
+import MovementStepPanel from "./components/MovementStepPanel/MovementStepPanel.vue";
 import ObjectPropertiesPanel from "./components/ObjectPropertiesPanel/ObjectPropertiesPanel.vue";
 import ObjectsPanel from "./components/ObjectsPanel/ObjectsPanel.vue";
 import ProjectsDashboard from "./components/ProjectsDashboard/ProjectsDashboard.vue";
@@ -248,6 +249,12 @@ const panelToggles: Array<{ id: AppPanel; label: string; icon: string }> = [
     // Standard clock with hands - clearly represents time/history
     icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>`,
   },
+  {
+    id: "movement-step",
+    label: "Ustawienia skoku ruchu",
+    // Step/stairs icon
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14H5v-2h3v-2h2v-2h2v6zm5-4h-2v-2h-2V9h-2V7h6v6z"/></svg>`,
+  },
 ];
 
 function togglePanel(id: AppPanel) {
@@ -266,6 +273,8 @@ const activePanelComponent = computed(() => {
       return ComponentsPanel;
     case "grid":
       return GridSettingsPanel;
+    case "movement-step":
+      return MovementStepPanel;
     default:
       return null;
   }

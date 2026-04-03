@@ -12,6 +12,7 @@ import type {
   GridConfig,
   HistoryEntry,
   MaterialTemplate,
+  MovementStepConfig,
   ObjectRelation,
   Project,
   RelationEditorMode,
@@ -71,6 +72,15 @@ function createInitialState() {
       sizeZ: 100,
       unit: "mm",
     } as GridConfig,
+
+    // Movement step settings
+    movementStep: {
+      mode: "shared",
+      sharedStep: 10,
+      stepX: 10,
+      stepY: 10,
+      stepZ: 10,
+    } as MovementStepConfig,
 
     // Snap-anchor state
     snapPhase: "none" as "none" | "select-source" | "select-target",
@@ -299,6 +309,9 @@ export const useAppStore = defineStore("app", () => {
       if (data.height !== undefined) syncData.height = data.height;
       if (data.depth !== undefined) syncData.depth = data.depth;
       if (data.color !== undefined) syncData.color = data.color;
+      if (data.material_type !== undefined) {
+        syncData.material_type = data.material_type;
+      }
       if (data.material_template_id !== undefined) {
         syncData.material_template_id = data.material_template_id;
       }
@@ -322,6 +335,9 @@ export const useAppStore = defineStore("app", () => {
     }
 
     const label = (() => {
+      if (data.material_type !== undefined) {
+        return `Zmieniono typ materiału: ${updated.name}`;
+      }
       if (data.color !== undefined) return `Zmieniono kolor: ${updated.name}`;
       if (
         data.width !== undefined ||
@@ -604,6 +620,24 @@ export const useAppStore = defineStore("app", () => {
         grid_size_mm: state.grid.sizeX,
         grid_visible: state.grid.visible ? 1 : 0,
       });
+    }
+  }
+
+  function setMovementStepConfig(config: Partial<MovementStepConfig>) {
+    Object.assign(state.movementStep, config);
+  }
+
+  function getStepForAxis(axis: "X" | "Y" | "Z"): number {
+    if (state.movementStep.mode === "shared") {
+      return state.movementStep.sharedStep;
+    }
+    switch (axis) {
+      case "X":
+        return state.movementStep.stepX;
+      case "Y":
+        return state.movementStep.stepY;
+      case "Z":
+        return state.movementStep.stepZ;
     }
   }
 
@@ -904,6 +938,8 @@ export const useAppStore = defineStore("app", () => {
     updateMaterial,
     deleteMaterial,
     setGridConfig,
+    setMovementStepConfig,
+    getStepForAxis,
     setActivePanel,
     setSceneMode,
     setContextMode,

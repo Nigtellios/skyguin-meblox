@@ -140,6 +140,99 @@
         </div>
       </div>
 
+      <!-- Material Type -->
+      <div class="panel-section">
+        <div class="label-text mb-2">Typ materiału</div>
+        <select
+          :value="obj.material_type || 'wood'"
+          class="input-field"
+          @change="onMaterialTypeChange"
+        >
+          <option v-for="mt in MATERIAL_TYPES" :key="mt" :value="mt">
+            {{ MATERIAL_TYPE_LABELS[mt] }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Object Shape -->
+      <div class="panel-section">
+        <div class="label-text mb-2">Kształt obiektu</div>
+        <select
+          :value="obj.object_shape || 'box'"
+          class="input-field"
+          @change="onShapeChange"
+        >
+          <option v-for="sh in OBJECT_SHAPES" :key="sh" :value="sh">
+            {{ OBJECT_SHAPE_LABELS[sh] }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Edge Rounding (only for box shapes) -->
+      <div class="panel-section" v-if="(obj.object_shape || 'box') === 'box'">
+        <div class="label-text mb-2">Zaoblenie krawędzi</div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-slate-500 block mb-1">Góra-lewo (mm)</label>
+            <input
+              :value="edgeRounding.topLeft"
+              type="number"
+              min="0"
+              step="1"
+              class="input-field"
+              @change="onEdgeRoundingChange('topLeft', $event)"
+            />
+          </div>
+          <div>
+            <label class="text-xs text-slate-500 block mb-1">Góra-prawo (mm)</label>
+            <input
+              :value="edgeRounding.topRight"
+              type="number"
+              min="0"
+              step="1"
+              class="input-field"
+              @change="onEdgeRoundingChange('topRight', $event)"
+            />
+          </div>
+          <div>
+            <label class="text-xs text-slate-500 block mb-1">Dół-lewo (mm)</label>
+            <input
+              :value="edgeRounding.bottomLeft"
+              type="number"
+              min="0"
+              step="1"
+              class="input-field"
+              @change="onEdgeRoundingChange('bottomLeft', $event)"
+            />
+          </div>
+          <div>
+            <label class="text-xs text-slate-500 block mb-1">Dół-prawo (mm)</label>
+            <input
+              :value="edgeRounding.bottomRight"
+              type="number"
+              min="0"
+              step="1"
+              class="input-field"
+              @change="onEdgeRoundingChange('bottomRight', $event)"
+            />
+          </div>
+        </div>
+        <!-- Quick presets for all corners -->
+        <div class="mt-2">
+          <label class="text-xs text-slate-500 block mb-1">Presety (wszystkie narożniki)</label>
+          <div class="flex gap-1 flex-wrap">
+            <button
+              v-for="preset in EDGE_ROUNDING_PRESETS"
+              :key="preset"
+              class="px-2 py-0.5 rounded text-xs bg-slate-700/60 text-slate-400 hover:bg-slate-600 transition-colors"
+              @click="setAllEdgeRounding(preset)"
+            >
+              {{ preset }}mm
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Material Template -->
       <div class="panel-section">
         <div class="label-text mb-2">Szablon materiału</div>
@@ -154,6 +247,31 @@
           </option>
         </select>
       </div>
+
+      <!-- Edge Banding (only for supported materials) -->
+      <div class="panel-section" v-if="supportsEdgeBanding">
+        <div class="label-text mb-2">Oklejanie</div>
+        <button
+          class="w-full px-3 py-2 rounded-lg text-sm bg-amber-700/30 text-amber-300 hover:bg-amber-700/50 transition-colors flex items-center justify-center gap-2"
+          @click="showEdgeBandingBuilder = true"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+          </svg>
+          {{ hasEdgeBanding ? 'Edytuj oklejanie' : 'Konfiguruj oklejanie' }}
+        </button>
+        <div v-if="hasEdgeBanding" class="mt-1 text-xs text-slate-500">
+          Aktywne oklejanie — wpływa na wymiary efektywne
+        </div>
+      </div>
+
+      <!-- Edge Banding Builder Modal -->
+      <EdgeBandingBuilder
+        v-if="showEdgeBandingBuilder && obj"
+        :obj="obj"
+        @save="onEdgeBandingSave"
+        @close="showEdgeBandingBuilder = false"
+      />
 
       <!-- Component info -->
       <div class="panel-section" v-if="obj.component_id">
@@ -186,16 +304,68 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useAppStore } from "../../composables/useAppStore";
+import type { MaterialType } from "../../lib/materialTypes";
+import {
+  EDGE_BANDING_MATERIALS,
+  MATERIAL_DEFAULT_COLORS,
+  MATERIAL_TYPE_LABELS,
+  MATERIAL_TYPES,
+} from "../../lib/materialTypes";
 import { OBJECT_COLOR_PALETTE } from "../../lib/objectPresets";
-import type { FurnitureObject } from "../../types";
+import type { ObjectShape } from "../../lib/objectShapes";
+import {
+  DEFAULT_EDGE_ROUNDING,
+  EDGE_ROUNDING_PRESETS,
+  OBJECT_SHAPE_LABELS,
+  OBJECT_SHAPES,
+} from "../../lib/objectShapes";
+import type { EdgeBandingConfig, FurnitureObject } from "../../types";
+import EdgeBandingBuilder from "../EdgeBandingBuilder/EdgeBandingBuilder.vue";
 
 const store = useAppStore();
 
 const obj = computed(() => store.firstSelectedObject);
 
 const colorPalette = OBJECT_COLOR_PALETTE;
+
+const showEdgeBandingBuilder = ref(false);
+
+const supportsEdgeBanding = computed(() =>
+  EDGE_BANDING_MATERIALS.has(
+    (obj.value?.material_type ?? "wood") as MaterialType,
+  ),
+);
+
+const hasEdgeBanding = computed(() => {
+  if (!obj.value?.edge_banding_json) return false;
+  try {
+    const config = JSON.parse(obj.value.edge_banding_json);
+    return (
+      config.frontThickness > 0 ||
+      config.backThickness > 0 ||
+      config.topThickness > 0 ||
+      config.bottomThickness > 0 ||
+      config.leftThickness > 0 ||
+      config.rightThickness > 0
+    );
+  } catch {
+    return false;
+  }
+});
+
+const edgeRounding = computed(() => {
+  if (!obj.value?.edge_rounding_json) return { ...DEFAULT_EDGE_ROUNDING };
+  try {
+    return {
+      ...DEFAULT_EDGE_ROUNDING,
+      ...JSON.parse(obj.value.edge_rounding_json),
+    };
+  } catch {
+    return { ...DEFAULT_EDGE_ROUNDING };
+  }
+});
 
 type EditableObjectField =
   | "name"
@@ -207,6 +377,8 @@ type EditableObjectField =
   | "position_z"
   | "rotation_y"
   | "color"
+  | "material_type"
+  | "object_shape"
   | "material_template_id";
 
 type NumericObjectField =
@@ -224,6 +396,48 @@ function updateObjectField<Key extends EditableObjectField>(
 ) {
   if (!obj.value) return;
   store.updateObject(obj.value.id, { [field]: value });
+}
+
+function onMaterialTypeChange(event: Event) {
+  const newType = (event.target as HTMLSelectElement).value as MaterialType;
+  if (!obj.value) return;
+  const defaultColor = MATERIAL_DEFAULT_COLORS[newType] ?? "#8B7355";
+  store.updateObject(obj.value.id, {
+    material_type: newType,
+    color: defaultColor,
+  });
+}
+
+function onShapeChange(event: Event) {
+  const newShape = (event.target as HTMLSelectElement).value as ObjectShape;
+  if (!obj.value) return;
+  store.updateObject(obj.value.id, { object_shape: newShape });
+}
+
+function onEdgeRoundingChange(
+  corner: "topLeft" | "topRight" | "bottomLeft" | "bottomRight",
+  event: Event,
+) {
+  const val = Number.parseFloat((event.target as HTMLInputElement).value);
+  if (!obj.value || Number.isNaN(val) || val < 0) return;
+  const current = edgeRounding.value;
+  const updated = { ...current, [corner]: val };
+  store.updateObject(obj.value.id, {
+    edge_rounding_json: JSON.stringify(updated),
+  });
+}
+
+function setAllEdgeRounding(radius: number) {
+  if (!obj.value) return;
+  const updated = {
+    topLeft: radius,
+    topRight: radius,
+    bottomLeft: radius,
+    bottomRight: radius,
+  };
+  store.updateObject(obj.value.id, {
+    edge_rounding_json: JSON.stringify(updated),
+  });
 }
 
 function updateNumberField(
@@ -251,5 +465,12 @@ async function onDelete() {
 
 async function toggleIndependent() {
   if (obj.value) await store.toggleObjectIndependent(obj.value.id);
+}
+
+function onEdgeBandingSave(config: EdgeBandingConfig) {
+  if (!obj.value) return;
+  store.updateObject(obj.value.id, {
+    edge_banding_json: JSON.stringify(config),
+  });
 }
 </script>

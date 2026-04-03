@@ -66,6 +66,19 @@ bun run test:regression
 bun run verify:start
 ```
 
+## Utrzymanie dokumentacji struktury projektu (STRUCTURE.md)
+
+- **Przed rozpoczęciem każdego taska** agent musi przeczytać plik `STRUCTURE.md`, aby zrozumieć aktualną strukturę projektu, lokalizację plików i konwencje.
+- **Po zakończeniu każdego taska** agent musi zaktualizować plik `STRUCTURE.md`, jeśli w ramach taska:
+  - dodano nowe pliki, katalogi lub komponenty,
+  - usunięto istniejące pliki lub katalogi,
+  - zmieniono przeznaczenie lub opis istniejącego pliku,
+  - dodano nowe tabele bazy danych lub zmieniono schemat,
+  - dodano nowe komendy/skrypty do `package.json`,
+  - zmieniono konwencje lub wzorce architektoniczne.
+- Aktualizacja `STRUCTURE.md` musi być częścią ostatniego commita taska.
+- Format aktualizacji: zachowaj istniejącą strukturę dokumentu, dodaj nowe wpisy w odpowiednich sekcjach, zaktualizuj datę na końcu pliku.
+
 ## Źródło prawdy dla walidacji
 
 - Agenci mają traktować hooki `Husky` jako obowiązkowe bramki jakości.

@@ -1,0 +1,10 @@
+export type { MaterialType } from "./materialTypes";
+export {
+  EDGE_BANDING_MATERIALS,
+  MATERIAL_DEFAULT_COLORS,
+  MATERIAL_METALNESS,
+  MATERIAL_ROUGHNESS,
+  MATERIAL_TYPE_LABELS,
+  MATERIAL_TYPES,
+  METALLIC_MATERIALS,
+} from "./materialTypes";

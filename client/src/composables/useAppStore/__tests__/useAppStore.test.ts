@@ -25,6 +25,10 @@ function makeObject(id: string): FurnitureObject {
     position_z: 0,
     rotation_y: 0,
     color: "#8B7355",
+    material_type: "wood" as const,
+    edge_banding_json: null,
+    object_shape: "box" as const,
+    edge_rounding_json: null,
     material_template_id: null,
     component_id: null,
     is_independent: 0,
@@ -368,5 +372,70 @@ describe("useAppStore – project view actions", () => {
     expect(duplicateSpy).toHaveBeenCalledWith("p1");
     expect(result.id).toBe("p1-copy");
     expect(store.state.projects[0]?.id).toBe("p1-copy");
+  });
+});
+
+describe("useAppStore – movement step config", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test("initial movement step config has shared mode with 10mm step", () => {
+    const store = useAppStore();
+    expect(store.state.movementStep.mode).toBe("shared");
+    expect(store.state.movementStep.sharedStep).toBe(10);
+    expect(store.state.movementStep.stepX).toBe(10);
+    expect(store.state.movementStep.stepY).toBe(10);
+    expect(store.state.movementStep.stepZ).toBe(10);
+  });
+
+  test("setMovementStepConfig updates shared step", () => {
+    const store = useAppStore();
+    store.setMovementStepConfig({ sharedStep: 5 });
+    expect(store.state.movementStep.sharedStep).toBe(5);
+  });
+
+  test("setMovementStepConfig switches to custom mode", () => {
+    const store = useAppStore();
+    store.setMovementStepConfig({ mode: "custom" });
+    expect(store.state.movementStep.mode).toBe("custom");
+  });
+
+  test("setMovementStepConfig updates per-axis steps", () => {
+    const store = useAppStore();
+    store.setMovementStepConfig({
+      mode: "custom",
+      stepX: 2,
+      stepY: 5,
+      stepZ: 1,
+    });
+    expect(store.state.movementStep.stepX).toBe(2);
+    expect(store.state.movementStep.stepY).toBe(5);
+    expect(store.state.movementStep.stepZ).toBe(1);
+  });
+
+  test("getStepForAxis returns shared step in shared mode", () => {
+    const store = useAppStore();
+    store.setMovementStepConfig({ sharedStep: 7 });
+    expect(store.getStepForAxis("X")).toBe(7);
+    expect(store.getStepForAxis("Y")).toBe(7);
+    expect(store.getStepForAxis("Z")).toBe(7);
+  });
+
+  test("getStepForAxis returns per-axis step in custom mode", () => {
+    const store = useAppStore();
+    store.setMovementStepConfig({
+      mode: "custom",
+      stepX: 2,
+      stepY: 3,
+      stepZ: 4,
+    });
+    expect(store.getStepForAxis("X")).toBe(2);
+    expect(store.getStepForAxis("Y")).toBe(3);
+    expect(store.getStepForAxis("Z")).toBe(4);
   });
 });

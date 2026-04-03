@@ -240,7 +240,7 @@
           <div class="flex flex-col gap-1">
             <button
               class="btn-icon-bar btn-move-arrow"
-              title="Obróć w lewo CCW (R)"
+              title="Obróć w lewo CCW (Q)"
               @click="onRotate(-1)"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -249,7 +249,7 @@
             </button>
             <button
               class="btn-icon-bar btn-move-arrow"
-              title="Obróć w prawo CW (R+Shift)"
+              title="Obróć w prawo CW (E)"
               @click="onRotate(1)"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -262,7 +262,9 @@
         <!-- Keyboard hints -->
         <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-slate-500 text-xs">
           <span>↑↓←→ przesuń</span>
-          <span>R obróć</span>
+          <span>R góra Y</span>
+          <span>F dół Y</span>
+          <span>Q/E obróć</span>
           <span>X/Y/Z oś</span>
         </div>
       </div>
@@ -306,7 +308,10 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from "vue";
+import { useAppStore } from "../../composables/useAppStore";
 import type { ContextMode, FurnitureObject, SceneMode } from "../../types";
+
+const store = useAppStore();
 
 const props = defineProps<{
   contextMode: ContextMode;
@@ -357,6 +362,11 @@ function onCustomStepChange() {
   }
 }
 
+/** Returns the effective step size for a given axis, considering store's global step config */
+function getEffectiveStep(axis: Axis): number {
+  return store.getStepForAxis(axis);
+}
+
 const ROTATE_STEP_DEG = 15;
 
 const upLabel = computed(() => {
@@ -379,26 +389,30 @@ const rightLabel = computed(() => {
 });
 
 function onMoveDir(dir: "up" | "down" | "left" | "right") {
-  const s = activeStep.value;
   const a = activeAxis.value;
   let dx = 0;
   let dy = 0;
   let dz = 0;
 
   if (a === "X") {
-    if (dir === "up") dx = s;
-    if (dir === "down") dx = -s;
-    if (dir === "left") dz = s;
-    if (dir === "right") dz = -s;
+    const sx = store.getStepForAxis("X");
+    const sz = store.getStepForAxis("Z");
+    if (dir === "up") dx = sx;
+    if (dir === "down") dx = -sx;
+    if (dir === "left") dz = sz;
+    if (dir === "right") dz = -sz;
   } else if (a === "Y") {
-    if (dir === "up") dy = s;
-    if (dir === "down") dy = -s;
+    const sy = store.getStepForAxis("Y");
+    if (dir === "up") dy = sy;
+    if (dir === "down") dy = -sy;
   } else {
     // Z
-    if (dir === "up") dz = -s;
-    if (dir === "down") dz = s;
-    if (dir === "left") dx = -s;
-    if (dir === "right") dx = s;
+    const sz = store.getStepForAxis("Z");
+    const sx = store.getStepForAxis("X");
+    if (dir === "up") dz = -sz;
+    if (dir === "down") dz = sz;
+    if (dir === "left") dx = -sx;
+    if (dir === "right") dx = sx;
   }
 
   emit("move-object", { dx, dy, dz, dr: 0 });
@@ -439,7 +453,22 @@ function handleMoveControlsKey(e: KeyboardEvent) {
     case "r":
     case "R":
       e.preventDefault();
-      onRotate(e.shiftKey ? 1 : -1);
+      emit("move-object", { dx: 0, dy: getEffectiveStep("Y"), dz: 0, dr: 0 });
+      break;
+    case "f":
+    case "F":
+      e.preventDefault();
+      emit("move-object", { dx: 0, dy: -getEffectiveStep("Y"), dz: 0, dr: 0 });
+      break;
+    case "q":
+    case "Q":
+      e.preventDefault();
+      onRotate(-1);
+      break;
+    case "e":
+    case "E":
+      e.preventDefault();
+      onRotate(1);
       break;
     case "x":
     case "X":

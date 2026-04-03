@@ -1,8 +1,21 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { ref } from "vue";
+import type { MaterialType } from "../../lib/materialTypes";
+import {
+  MATERIAL_METALNESS,
+  MATERIAL_ROUGHNESS,
+  METALLIC_MATERIALS,
+} from "../../lib/materialTypes";
+import type { EdgeRoundingConfig } from "../../lib/objectShapes";
+import { DEFAULT_EDGE_ROUNDING } from "../../lib/objectShapes";
 import type { SnapAnchorType } from "../../lib/snapAnchors";
-import type { FurnitureObject, GridConfig } from "../../types";
+import type {
+  EdgeBandingConfig,
+  FurnitureObject,
+  GridConfig,
+} from "../../types";
+import { DEFAULT_EDGE_BANDING } from "../../types";
 
 // Scale factor: 1 Three.js unit = 1mm
 const SCALE = 0.001; // mm → meters (Three.js world units)
@@ -201,10 +214,54 @@ export function useScene(canvas: HTMLCanvasElement) {
   buildGrid({ visible: true, sizeX: 100, sizeY: 100, sizeZ: 100, unit: "mm" });
 
   // ---- Object Materials ----
+  // Cache for shared environment map to avoid recreating for every metallic object
+  let _envMap: THREE.Texture | null = null;
+
+  function getMetalEnvMap(): THREE.Texture {
+    if (!_envMap) {
+      // Create a simple gradient environment map for metallic reflections
+      // This is much cheaper than loading an HDR and provides convincing results
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      const envScene = new THREE.Scene();
+      envScene.background = new THREE.Color(0x444455);
+      // Add a bright upper hemisphere and darker lower to simulate studio lighting
+      const envLight1 = new THREE.DirectionalLight(0xffffff, 2);
+      envLight1.position.set(0, 1, 0);
+      envScene.add(envLight1);
+      const envLight2 = new THREE.DirectionalLight(0xccccdd, 1);
+      envLight2.position.set(1, 0.5, 1);
+      envScene.add(envLight2);
+      _envMap = pmremGenerator.fromScene(envScene, 0.04).texture;
+      // Dispose temporary resources used for env map generation
+      pmremGenerator.dispose();
+    }
+    return _envMap;
+  }
+
   function createObjectMaterial(
     color: string,
     selected: boolean,
-  ): THREE.MeshPhongMaterial {
+    materialType?: string,
+  ): THREE.Material {
+    const isMetallic = METALLIC_MATERIALS.has(
+      (materialType ?? "wood") as MaterialType,
+    );
+
+    if (isMetallic) {
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(color),
+        metalness: MATERIAL_METALNESS[materialType as MaterialType] ?? 0.8,
+        roughness: MATERIAL_ROUGHNESS[materialType as MaterialType] ?? 0.35,
+        envMap: getMetalEnvMap(),
+        envMapIntensity: 1.0,
+      });
+      if (selected) {
+        mat.emissive.set(0x2244aa);
+        mat.emissiveIntensity = 0.3;
+      }
+      return mat;
+    }
+
     const mat = new THREE.MeshPhongMaterial({
       color: new THREE.Color(color),
       shininess: 30,
@@ -238,14 +295,323 @@ export function useScene(canvas: HTMLCanvasElement) {
     if (existing) mesh.remove(existing);
   }
 
-  // ---- Add / Update / Remove Objects ----
-  function addObject(obj: FurnitureObject) {
+  // ---- Edge banding visualization (dashed lines) ----
+  function parseEdgeBanding(obj: FurnitureObject): EdgeBandingConfig | null {
+    if (!obj.edge_banding_json) return null;
+    try {
+      const config = {
+        ...DEFAULT_EDGE_BANDING,
+        ...JSON.parse(obj.edge_banding_json),
+      };
+      const hasAny =
+        config.frontThickness > 0 ||
+        config.backThickness > 0 ||
+        config.topThickness > 0 ||
+        config.bottomThickness > 0 ||
+        config.leftThickness > 0 ||
+        config.rightThickness > 0;
+      return hasAny ? config : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function removeEdgeBandingVisualization(mesh: THREE.Mesh) {
+    const children = mesh.children.filter((c) =>
+      c.name.startsWith("__edge_banding_"),
+    );
+    for (const child of children) {
+      mesh.remove(child);
+      if (child instanceof THREE.LineSegments) {
+        child.geometry.dispose();
+        (child.material as THREE.Material).dispose();
+      }
+    }
+  }
+
+  function addEdgeBandingVisualization(
+    mesh: THREE.Mesh,
+    config: EdgeBandingConfig,
+  ) {
+    removeEdgeBandingVisualization(mesh);
+
+    // Derive half-extents from the bounding box so this works for any
+    // geometry (BoxGeometry, ExtrudeGeometry for rounded boxes, etc.)
+    mesh.geometry.computeBoundingBox();
+    const box = mesh.geometry.boundingBox;
+    if (!box) return;
+
+    const hw = (box.max.x - box.min.x) / 2;
+    const hh = (box.max.y - box.min.y) / 2;
+    const hd = (box.max.z - box.min.z) / 2;
+    const offset = 0.0005; // small offset to prevent z-fighting
+
+    // Create dashed line patterns for each active edge/face
+    const sides: Array<{
+      name: string;
+      thickness: number;
+      color: string;
+      points: [THREE.Vector3, THREE.Vector3][];
+    }> = [];
+
+    if (config.frontThickness > 0) {
+      // Front face - draw dashed rectangle outline on the front
+      const z = hd + offset;
+      sides.push({
+        name: "front",
+        thickness: config.frontThickness,
+        color: config.frontColor,
+        points: [
+          [new THREE.Vector3(-hw, -hh, z), new THREE.Vector3(hw, -hh, z)],
+          [new THREE.Vector3(hw, -hh, z), new THREE.Vector3(hw, hh, z)],
+          [new THREE.Vector3(hw, hh, z), new THREE.Vector3(-hw, hh, z)],
+          [new THREE.Vector3(-hw, hh, z), new THREE.Vector3(-hw, -hh, z)],
+        ],
+      });
+    }
+
+    if (config.backThickness > 0) {
+      const z = -(hd + offset);
+      sides.push({
+        name: "back",
+        thickness: config.backThickness,
+        color: config.backColor,
+        points: [
+          [new THREE.Vector3(-hw, -hh, z), new THREE.Vector3(hw, -hh, z)],
+          [new THREE.Vector3(hw, -hh, z), new THREE.Vector3(hw, hh, z)],
+          [new THREE.Vector3(hw, hh, z), new THREE.Vector3(-hw, hh, z)],
+          [new THREE.Vector3(-hw, hh, z), new THREE.Vector3(-hw, -hh, z)],
+        ],
+      });
+    }
+
+    if (config.topThickness > 0) {
+      const y = hh + offset;
+      sides.push({
+        name: "top",
+        thickness: config.topThickness,
+        color: config.topColor,
+        points: [
+          [new THREE.Vector3(-hw, y, -hd), new THREE.Vector3(hw, y, -hd)],
+          [new THREE.Vector3(hw, y, -hd), new THREE.Vector3(hw, y, hd)],
+          [new THREE.Vector3(hw, y, hd), new THREE.Vector3(-hw, y, hd)],
+          [new THREE.Vector3(-hw, y, hd), new THREE.Vector3(-hw, y, -hd)],
+        ],
+      });
+    }
+
+    if (config.bottomThickness > 0) {
+      const y = -(hh + offset);
+      sides.push({
+        name: "bottom",
+        thickness: config.bottomThickness,
+        color: config.bottomColor,
+        points: [
+          [new THREE.Vector3(-hw, y, -hd), new THREE.Vector3(hw, y, -hd)],
+          [new THREE.Vector3(hw, y, -hd), new THREE.Vector3(hw, y, hd)],
+          [new THREE.Vector3(hw, y, hd), new THREE.Vector3(-hw, y, hd)],
+          [new THREE.Vector3(-hw, y, hd), new THREE.Vector3(-hw, y, -hd)],
+        ],
+      });
+    }
+
+    if (config.leftThickness > 0) {
+      const x = -(hw + offset);
+      sides.push({
+        name: "left",
+        thickness: config.leftThickness,
+        color: config.leftColor,
+        points: [
+          [new THREE.Vector3(x, -hh, -hd), new THREE.Vector3(x, -hh, hd)],
+          [new THREE.Vector3(x, -hh, hd), new THREE.Vector3(x, hh, hd)],
+          [new THREE.Vector3(x, hh, hd), new THREE.Vector3(x, hh, -hd)],
+          [new THREE.Vector3(x, hh, -hd), new THREE.Vector3(x, -hh, -hd)],
+        ],
+      });
+    }
+
+    if (config.rightThickness > 0) {
+      const x = hw + offset;
+      sides.push({
+        name: "right",
+        thickness: config.rightThickness,
+        color: config.rightColor,
+        points: [
+          [new THREE.Vector3(x, -hh, -hd), new THREE.Vector3(x, -hh, hd)],
+          [new THREE.Vector3(x, -hh, hd), new THREE.Vector3(x, hh, hd)],
+          [new THREE.Vector3(x, hh, hd), new THREE.Vector3(x, hh, -hd)],
+          [new THREE.Vector3(x, hh, -hd), new THREE.Vector3(x, -hh, -hd)],
+        ],
+      });
+    }
+
+    for (const side of sides) {
+      const positions: number[] = [];
+      for (const [start, end] of side.points) {
+        positions.push(start.x, start.y, start.z, end.x, end.y, end.z);
+      }
+      const lineGeom = new THREE.BufferGeometry();
+      lineGeom.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(positions, 3),
+      );
+      const lineMat = new THREE.LineDashedMaterial({
+        color: new THREE.Color(side.color),
+        dashSize: 0.008,
+        gapSize: 0.004,
+        linewidth: 1,
+      });
+      const lineSegments = new THREE.LineSegments(lineGeom, lineMat);
+      lineSegments.computeLineDistances();
+      lineSegments.name = `__edge_banding_${side.name}__`;
+      mesh.add(lineSegments);
+    }
+  }
+
+  function updateEdgeBandingVisualization(
+    mesh: THREE.Mesh,
+    obj: FurnitureObject,
+  ) {
+    const config = parseEdgeBanding(obj);
+    if (config) {
+      addEdgeBandingVisualization(mesh, config);
+    } else {
+      removeEdgeBandingVisualization(mesh);
+    }
+  }
+
+  // ---- Geometry creation based on shape ----
+  function createObjectGeometry(obj: FurnitureObject): THREE.BufferGeometry {
     const w = obj.width * SCALE;
     const h = obj.height * SCALE;
     const d = obj.depth * SCALE;
+    const shape = obj.object_shape || "box";
 
-    const geom = new THREE.BoxGeometry(w, h, d);
-    const mat = createObjectMaterial(obj.color, selectedIds.value.has(obj.id));
+    switch (shape) {
+      case "sphere": {
+        // Use the average of all dimensions as diameter for balanced proportions
+        const radius = (w + h + d) / 6;
+        return new THREE.SphereGeometry(radius, 32, 24);
+      }
+      case "cylinder": {
+        // Use the average of width/depth as diameter, height stays as cylinder height
+        const cylRadius = (w + d) / 4;
+        return new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32);
+      }
+      case "cube": {
+        // Use the largest dimension for all sides
+        const side = Math.max(w, h, d);
+        return new THREE.BoxGeometry(side, side, side);
+      }
+      default: {
+        // Check for edge rounding
+        const rounding = parseEdgeRounding(obj);
+        if (rounding) {
+          return createRoundedBoxGeometry(w, h, d, rounding);
+        }
+        return new THREE.BoxGeometry(w, h, d);
+      }
+    }
+  }
+
+  function parseEdgeRounding(obj: FurnitureObject): EdgeRoundingConfig | null {
+    if (!obj.edge_rounding_json) return null;
+    try {
+      const config = {
+        ...DEFAULT_EDGE_ROUNDING,
+        ...JSON.parse(obj.edge_rounding_json),
+      };
+      const hasAny =
+        config.topLeft > 0 ||
+        config.topRight > 0 ||
+        config.bottomLeft > 0 ||
+        config.bottomRight > 0;
+      return hasAny ? config : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Creates a box geometry with rounded vertical edges (fillets).
+   * Based on carpentry standards where rounded corners are cylindrical arcs
+   * that maintain the object's thickness and are always cut perpendicular.
+   */
+  function createRoundedBoxGeometry(
+    w: number,
+    h: number,
+    d: number,
+    rounding: EdgeRoundingConfig,
+  ): THREE.BufferGeometry {
+    const hw = w / 2;
+    const hd = d / 2;
+    const segments = 8; // segments per corner arc
+
+    // Create a 2D shape (XZ plane) with rounded corners, then extrude vertically
+    const shape = new THREE.Shape();
+
+    const tl = Math.min(rounding.topLeft * SCALE, hw, hd);
+    const tr = Math.min(rounding.topRight * SCALE, hw, hd);
+    const br = Math.min(rounding.bottomRight * SCALE, hw, hd);
+    const bl = Math.min(rounding.bottomLeft * SCALE, hw, hd);
+
+    // Start from bottom-left, going clockwise (viewed from top)
+    // Bottom edge (from bottom-left to bottom-right)
+    shape.moveTo(-hw + bl, -hd);
+    shape.lineTo(hw - br, -hd);
+
+    // Bottom-right corner arc
+    if (br > 0) {
+      shape.absarc(hw - br, -hd + br, br, -Math.PI / 2, 0, false);
+    }
+
+    // Right edge
+    shape.lineTo(hw, hd - tr);
+
+    // Top-right corner arc
+    if (tr > 0) {
+      shape.absarc(hw - tr, hd - tr, tr, 0, Math.PI / 2, false);
+    }
+
+    // Top edge
+    shape.lineTo(-hw + tl, hd);
+
+    // Top-left corner arc
+    if (tl > 0) {
+      shape.absarc(-hw + tl, hd - tl, tl, Math.PI / 2, Math.PI, false);
+    }
+
+    // Left edge
+    shape.lineTo(-hw, -hd + bl);
+
+    // Bottom-left corner arc
+    if (bl > 0) {
+      shape.absarc(-hw + bl, -hd + bl, bl, Math.PI, (3 * Math.PI) / 2, false);
+    }
+
+    const extrudeSettings: THREE.ExtrudeGeometryOptions = {
+      depth: h,
+      bevelEnabled: false,
+      curveSegments: segments,
+    };
+
+    const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    // Rotate so the extrusion goes along Y axis (up) instead of Z
+    geom.rotateX(-Math.PI / 2);
+    // Center vertically
+    geom.translate(0, h / 2, 0);
+
+    return geom;
+  }
+
+  // ---- Add / Update / Remove Objects ----
+  function addObject(obj: FurnitureObject) {
+    const geom = createObjectGeometry(obj);
+    const mat = createObjectMaterial(
+      obj.color,
+      selectedIds.value.has(obj.id),
+      obj.material_type,
+    );
     const mesh = new THREE.Mesh(geom, mat);
 
     mesh.position.set(
@@ -257,14 +623,26 @@ export function useScene(canvas: HTMLCanvasElement) {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.name = obj.id;
-    mesh.userData = { type: "furniture", id: obj.id };
+    mesh.userData = {
+      type: "furniture",
+      id: obj.id,
+      __geoSig: geometrySignature(obj),
+    };
 
     if (selectedIds.value.has(obj.id)) {
       addSelectionWireframe(mesh);
     }
 
+    // Add edge banding visualization if applicable
+    updateEdgeBandingVisualization(mesh, obj);
+
     scene.add(mesh);
     objectMeshMap.set(obj.id, mesh);
+  }
+
+  /** Build a string key that identifies the geometry-relevant properties of an object. */
+  function geometrySignature(obj: FurnitureObject): string {
+    return `${obj.width}:${obj.height}:${obj.depth}:${obj.object_shape ?? "box"}:${obj.edge_rounding_json ?? ""}`;
   }
 
   function updateObject(obj: FurnitureObject) {
@@ -274,31 +652,47 @@ export function useScene(canvas: HTMLCanvasElement) {
       return;
     }
 
-    // Update geometry if dimensions changed
-    const w = obj.width * SCALE;
-    const h = obj.height * SCALE;
-    const d = obj.depth * SCALE;
-    const oldGeom = mesh.geometry as THREE.BoxGeometry;
-    const params = oldGeom.parameters;
-    if (params.width !== w || params.height !== h || params.depth !== d) {
+    // Only recreate geometry when shape/dimensions/rounding actually changed
+    const newSig = geometrySignature(obj);
+    if (mesh.userData.__geoSig !== newSig) {
       mesh.geometry.dispose();
-      mesh.geometry = new THREE.BoxGeometry(w, h, d);
+      mesh.geometry = createObjectGeometry(obj);
+      mesh.userData.__geoSig = newSig;
       // Rebuild selection wireframe if selected
       if (selectedIds.value.has(obj.id)) {
         addSelectionWireframe(mesh);
       }
     }
 
-    // Update material color
-    const mat = mesh.material as THREE.MeshPhongMaterial;
-    mat.color.set(obj.color);
-    const isSelected = selectedIds.value.has(obj.id);
-    if (isSelected) {
-      mat.emissive.set(0x2244aa);
-      mat.emissiveIntensity = 0.3;
+    // Update material - check if material type changed (need full replacement)
+    const currentMat = mesh.material as THREE.Material;
+    const currentIsMetallic = currentMat instanceof THREE.MeshStandardMaterial;
+    const newIsMetallic = METALLIC_MATERIALS.has(
+      (obj.material_type ?? "wood") as MaterialType,
+    );
+
+    if (currentIsMetallic !== newIsMetallic) {
+      // Material type category changed, need full replacement
+      currentMat.dispose();
+      mesh.material = createObjectMaterial(
+        obj.color,
+        selectedIds.value.has(obj.id),
+        obj.material_type,
+      );
     } else {
-      mat.emissive.set(0x000000);
-      mat.emissiveIntensity = 0;
+      // Same material category, just update color and selection state
+      const mat = mesh.material as
+        | THREE.MeshPhongMaterial
+        | THREE.MeshStandardMaterial;
+      mat.color.set(obj.color);
+      const isSelected = selectedIds.value.has(obj.id);
+      if (isSelected) {
+        mat.emissive.set(0x2244aa);
+        mat.emissiveIntensity = 0.3;
+      } else {
+        mat.emissive.set(0x000000);
+        mat.emissiveIntensity = 0;
+      }
     }
 
     // Update position
@@ -308,6 +702,9 @@ export function useScene(canvas: HTMLCanvasElement) {
       obj.position_z * SCALE,
     );
     mesh.rotation.y = obj.rotation_y;
+
+    // Update edge banding visualization
+    updateEdgeBandingVisualization(mesh, obj);
   }
 
   function removeObject(id: string) {
@@ -347,7 +744,9 @@ export function useScene(canvas: HTMLCanvasElement) {
 
     // Update selection highlights
     for (const [id, mesh] of objectMeshMap) {
-      const mat = mesh.material as THREE.MeshPhongMaterial;
+      const mat = mesh.material as
+        | THREE.MeshPhongMaterial
+        | THREE.MeshStandardMaterial;
       if (selIds.includes(id)) {
         mat.emissive.set(0x2244aa);
         mat.emissiveIntensity = 0.3;
@@ -793,6 +1192,10 @@ export function useScene(canvas: HTMLCanvasElement) {
     cancelAnimationFrame(animFrameId);
     resizeObserver.disconnect();
     controls.dispose();
+    if (_envMap) {
+      _envMap.dispose();
+      _envMap = null;
+    }
     if (typeof renderer.forceContextLoss === "function") {
       renderer.forceContextLoss();
     }
