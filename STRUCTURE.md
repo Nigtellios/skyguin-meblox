@@ -12,7 +12,7 @@
 | Frontend | Vue 3, TypeScript, Three.js (rendering 3D), Tailwind CSS v4, Pinia (state management) |
 | Backend | Bun (runtime), SQLite (baza danych) |
 | Build | Vite, TypeScript, Biome (linter/formatter) |
-| Testy | Bun test (unit/integracyjne), Playwright (regresja e2e) |
+| Testy | Bun test (unit/integracyjne) |
 | Hooki | Husky (pre-commit, pre-push) |
 
 ---
@@ -24,8 +24,8 @@ skyguin-meblox/
 ├── .git/                        # Repozytorium Git
 ├── .gitignore                   # Ignorowane pliki
 ├── .husky/                      # Hooki Git (pre-commit, pre-push)
-│   ├── pre-commit               # Uruchamia: lint, typecheck, test, regression przed commitem
-│   └── pre-push                 # Uruchamia: build + verify-start przed pushem
+│   ├── pre-commit               # Uruchamia: lint:fix, lint, typecheck, test:run przed commitem
+│   └── pre-push                 # Uruchamia: build + verify-start (smoke test serwera) przed pushem
 ├── .idea/                       # Konfiguracja IDE (JetBrains)
 ├── AGENTS.md                    # Instrukcje dla agentów AI
 ├── STRUCTURE.md                 # Ten plik — mapa struktury projektu
@@ -64,10 +64,7 @@ skyguin-meblox/
 │   └── client.helpers.test.ts   # Testy helperów klienta (grid, presety, relacje, snap anchory, typy)
 │
 ├── scripts/                     # Skrypty automatyzacji
-│   ├── run-regression.ts        # Runner testów regresyjnych Playwright (e2e)
-│   ├── verify-start.ts          # Weryfikacja buildu produkcyjnego i uruchomienia serwera
-│   ├── smoke-project-open.ts    # Smoke test otwierania projektu
-│   └── debug-playwright.mjs     # Helper do debugowania Playwright
+│   └── verify-start.ts          # Smoke test serwera — sprawdza czy serwer startuje i odpowiada (timeout 30s)
 │
 └── specs/                       # Specyfikacje i mockupy
     ├── 001-kontrola-widoku.md   # Specyfikacja UI/UX (po polsku) — ikony, historia, kontekst, magnes
@@ -352,10 +349,7 @@ skyguin-meblox/
 
 | Plik | Opis |
 |------|------|
-| `run-regression.ts` | Runner testów regresyjnych Playwright — uruchamia serwer deweloperski i UI, testy e2e: tworzenie projektu, dodawanie obiektów, interakcje sceny, edycja materiałów. |
-| `verify-start.ts` | Weryfikacja buildu produkcyjnego — buduje klienta, uruchamia serwer, sprawdza endpointy healthcheck (API + UI). |
-| `smoke-project-open.ts` | Smoke test otwierania/edycji projektu przez UI. |
-| `debug-playwright.mjs` | Helper do debugowania Playwright. |
+| `verify-start.ts` | Smoke test serwera — uruchamia serwer, sprawdza czy odpowiada na `/api/projects` (timeout 30s). |
 
 ---
 
@@ -381,8 +375,7 @@ skyguin-meblox/
 | `bun run lint` | Sprawdzenie lintingu (Biome) |
 | `bun run lint:fix` | Automatyczne poprawki lintingu |
 | `bun test` / `bun run test:run` | Uruchomienie testów jednostkowych (--bail przy test:run) |
-| `bun run test:regression` | Testy regresyjne Playwright (e2e) |
-| `bun run verify:start` | Weryfikacja buildu + start serwera |
+| `bun run verify:start` | Build + smoke test serwera (sprawdza czy serwer startuje) |
 
 ---
 
@@ -414,4 +407,4 @@ skyguin-meblox/
 
 ---
 
-*Ostatnia aktualizacja: 2026-04-01 (dodano materiały, oklejanie, kształty, zaoblenia)*
+*Ostatnia aktualizacja: 2026-04-03 (usunięto Playwright i testy regresyjne e2e; verify-start to tylko smoke test serwera)*

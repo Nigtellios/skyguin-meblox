@@ -17,9 +17,6 @@
     "lint:fix": "bunx @biomejs/biome check --write .",
     "test": "bun test",
     "test:run": "bun test --bail",
-    "test:regression": "bun run scripts/run-regression.ts",
-    "test:regression:playwright": "bun run scripts/run-regression.ts",
-    "test:smoke:project-open": "bun run test:regression",
     "verify:start": "bun run build && bun run scripts/verify-start.ts",
     "prepare": "husky"
   },
@@ -32,7 +29,6 @@
     "@vitejs/plugin-vue": "^5.2.4",
     "bun-types": "^1.3.10",
     "husky": "^9.1.7",
-    "playwright": "^1.58.2",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
     "vite": "^6.4.1",
